@@ -60,7 +60,7 @@ typedef struct sddf_snd_pcm_set_params {
 
 typedef struct sddf_snd_command {
     sddf_snd_command_code_t code;
-    uint32_t cmd_id;
+    uint32_t msg_id;
     uint32_t stream_id;
     sddf_snd_pcm_set_params_t set_params;
 } sddf_snd_command_t;
@@ -72,6 +72,7 @@ typedef struct sddf_snd_response {
 
 typedef struct sddf_snd_pcm_data {
     uint32_t stream_id;
+    uint32_t msg_id;
     uintptr_t addr;
     unsigned int len;
 } sddf_snd_pcm_data_t;
@@ -187,8 +188,7 @@ int sddf_snd_enqueue_response(sddf_snd_response_ring_t *ring, uint32_t cmd_id,
  *
  * @return -1 when ring is full, 0 on success.
  */
-int sddf_snd_enqueue_pcm_data(sddf_snd_pcm_data_ring_t *ring, uint32_t stream_id,
-                              intptr_t addr, unsigned int len);
+int sddf_snd_enqueue_pcm_data(sddf_snd_pcm_data_ring_t *ring, sddf_snd_pcm_data_t *pcm);
 
 /**
  * Dequeue an element from a command ring buffer.

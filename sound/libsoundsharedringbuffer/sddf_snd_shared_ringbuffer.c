@@ -45,7 +45,7 @@ int sddf_snd_enqueue_cmd(sddf_snd_cmd_ring_t *ring,
     sddf_snd_command_t *dest = &ring->buffers[ring->state.write_idx % ring->state.size];
 
     dest->code = command->code;
-    dest->cmd_id = command->cmd_id;
+    dest->msg_id = command->msg_id;
     dest->stream_id = command->stream_id;
     dest->set_params = command->set_params;
 
@@ -73,9 +73,7 @@ int sddf_snd_enqueue_response(sddf_snd_response_ring_t *ring, uint32_t cmd_id,
     return 0;
 }
 
-int sddf_snd_enqueue_pcm_data(sddf_snd_pcm_data_ring_t *ring,
-                              uint32_t stream_id, intptr_t addr,
-                              unsigned int len)
+int sddf_snd_enqueue_pcm_data(sddf_snd_pcm_data_ring_t *ring, sddf_snd_pcm_data_t *pcm)
 {
     if (sddf_snd_ring_full(&ring->state)) {
         return -1;
@@ -84,9 +82,7 @@ int sddf_snd_enqueue_pcm_data(sddf_snd_pcm_data_ring_t *ring,
     sddf_snd_pcm_data_t *data =
         &ring->buffers[ring->state.write_idx % ring->state.size];
 
-    data->stream_id = stream_id;
-    data->addr = addr;
-    data->len = len;
+    *data = *pcm;
 
     THREAD_MEMORY_RELEASE();
     ring->state.write_idx++;
