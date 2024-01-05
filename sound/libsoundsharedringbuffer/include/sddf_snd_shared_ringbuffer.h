@@ -60,13 +60,19 @@ typedef struct sddf_snd_pcm_set_params {
 
 typedef struct sddf_snd_command {
     sddf_snd_command_code_t code;
+    uint32_t cmd_id;
     uint32_t stream_id;
     sddf_snd_pcm_set_params_t set_params;
 } sddf_snd_command_t;
 
+typedef struct sddf_snd_response {
+    uint32_t cmd_id;
+    sddf_snd_status_code_t status;
+} sddf_snd_response_t;
+
 typedef struct sddf_snd_pcm_data {
     uint32_t stream_id;
-    intptr_t addr;
+    uintptr_t addr;
     unsigned int len;
 } sddf_snd_pcm_data_t;
 
@@ -82,6 +88,11 @@ typedef struct sddf_snd_cmd_ring_t {
     sddf_snd_command_t buffers[SDDF_SND_NUM_CMD_BUFFERS];
 } sddf_snd_cmd_ring_t;
 
+typedef struct sddf_snd_response_ring_t {
+    sddf_snd_ring_state_t state;
+    sddf_snd_response_t buffers[SDDF_SND_NUM_CMD_BUFFERS];
+} sddf_snd_response_ring_t;
+
 typedef struct sddf_snd_pcm_data_ring {
     sddf_snd_ring_state_t state;
     sddf_snd_pcm_data_t buffers[SDDF_SND_NUM_PCM_DATA_BUFFERS];
@@ -89,6 +100,7 @@ typedef struct sddf_snd_pcm_data_ring {
 
 typedef struct sddf_snd_rings {
     sddf_snd_cmd_ring_t *commands;
+    sddf_snd_response_ring_t *responses;
 
     sddf_snd_pcm_data_ring_t *tx_used;
     sddf_snd_pcm_data_ring_t *tx_free;
@@ -144,35 +156,59 @@ bool sddf_snd_ring_full(sddf_snd_ring_state_t *ring_state);
 int sddf_snd_ring_size(sddf_snd_ring_state_t *ring_state);
 
 /**
- * Enqueue a query info command into the command ring buffer.
+ * Enqueue a command into the command ring buffer.
  *
- * @param cmd_ring Command ring to enqueue to
+ * @param ring Command ring to enqueue to
  * @param command Reference to command to enqueue
  *
  * @return -1 when command ring is full, 0 on success.
  */
-int sddf_snd_enqueue_cmd(sddf_snd_cmd_ring_t *cmd_ring, const sddf_snd_command_t *command);
+int sddf_snd_enqueue_cmd(sddf_snd_cmd_ring_t *ring, const sddf_snd_command_t *command);
 
 /**
- * Enqueue a query info command into a command ring buffer.
+ * Enqueue a response into the response ring buffer.
  *
- * @param pcm_ring PCM data ring to enqueue to
- * @param command Reference to command to enqueue
+ * @param ring Response ring to enqueue to
+ * @param cmd_id Command id
+ * @param status Status code
  *
- * @return -1 when command ring is full, 0 on success.
+ * @return -1 when ring is full, 0 on success.
  */
-int sddf_snd_enqueue_pcm_data(sddf_snd_pcm_data_ring_t *pcm_ring, uint32_t stream_id,
+int sddf_snd_enqueue_response(sddf_snd_response_ring_t *ring, uint32_t cmd_id,
+                              sddf_snd_status_code_t status);
+
+/**
+ * Enqueue a PCM data element into the PCM data ring buffer.
+ *
+ * @param ring PCM data ring to enqueue to
+ * @param stream_id Stream id
+ * @param addr Address of PCM buffer
+ * @param len Number of bytes in buffer
+ *
+ * @return -1 when ring is full, 0 on success.
+ */
+int sddf_snd_enqueue_pcm_data(sddf_snd_pcm_data_ring_t *ring, uint32_t stream_id,
                               intptr_t addr, unsigned int len);
 
 /**
  * Dequeue an element from a command ring buffer.
  *
- * @param cmd_ring The command ring to dequeue from.
+ * @param ring The command ring to dequeue from.
  * @param code pointer to command code.
  *
  * @return -1 when command ring is empty, 0 on success.
  */
-int sddf_snd_dequeue_cmd(sddf_snd_cmd_ring_t *cmd_ring, sddf_snd_command_t *out);
+int sddf_snd_dequeue_cmd(sddf_snd_cmd_ring_t *ring, sddf_snd_command_t *out);
+
+/**
+ * Dequeue an element from a response ring buffer.
+ *
+ * @param ring The response ring to dequeue from.
+ * @param code pointer to command code.
+ *
+ * @return -1 when command ring is empty, 0 on success.
+ */
+int sddf_snd_dequeue_response(sddf_snd_response_ring_t *ring, sddf_snd_response_t *out);
 
 /**
  * Dequeue an element from a pcm data ring buffer.
@@ -183,3 +219,12 @@ int sddf_snd_dequeue_cmd(sddf_snd_cmd_ring_t *cmd_ring, sddf_snd_command_t *out)
  * @return -1 when command ring is empty, 0 on success.
  */
 int sddf_snd_dequeue_pcm_data(sddf_snd_pcm_data_ring_t *pcm_ring, sddf_snd_pcm_data_t *out);
+
+
+const char *sddf_snd_command_code_str(sddf_snd_command_code_t code);
+
+const char *sddf_snd_status_code_str(sddf_snd_status_code_t code);
+
+const char *sddf_snd_event_code_str(sddf_snd_event_code_t code);
+
+const char *sddf_snd_pcm_fmt_str(sddf_snd_pcm_fmt_t fmt);

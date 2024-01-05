@@ -67,7 +67,6 @@ typedef struct sddf_snd_pcm_info {
 #define SDDF_SND_MAX_STREAM_COUNT 32
 
 typedef struct sddf_snd_shared_state {
-    volatile bool ready;
     uint32_t streams;
     sddf_snd_pcm_info_t stream_info[SDDF_SND_MAX_STREAM_COUNT];
 } sddf_snd_shared_state_t;
