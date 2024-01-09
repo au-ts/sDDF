@@ -22,7 +22,7 @@
 // into a single one of these buffers, so we need to make sure
 // we only allow PCM streams whose buffers fit.
 // (consider sample rate, #channels, ..?)
-#define SDDF_SND_PCM_BUFFER_SIZE 2048
+#define SDDF_SND_PCM_BUFFER_SIZE 4096
 
 typedef enum {
     // PCM set params command
@@ -36,15 +36,16 @@ typedef enum {
 
 typedef enum {
     /* PCM event types */
-    SDDF_SND_EVT_PCM_PERIOD_ELAPSED = 0x1100,
+    SDDF_SND_EVT_PCM_PERIOD_ELAPSED,
     SDDF_SND_EVT_PCM_XRUN,
 } sddf_snd_event_code_t;
 
 typedef enum {
-    SDDF_SND_S_OK = 0x8000,
+    SDDF_SND_S_OK,
     SDDF_SND_S_BAD_MSG,
     SDDF_SND_S_NOT_SUPP,
-    SDDF_SND_S_IO_ERR
+    SDDF_SND_S_IO_ERR,
+    SDDF_SND_S_XRUN,
 } sddf_snd_status_code_t;
 
 typedef struct sddf_snd_pcm_set_params {
@@ -66,7 +67,7 @@ typedef struct sddf_snd_command {
 } sddf_snd_command_t;
 
 typedef struct sddf_snd_response {
-    uint32_t cmd_id;
+    uint32_t msg_id;
     sddf_snd_status_code_t status;
 } sddf_snd_response_t;
 
@@ -101,9 +102,18 @@ typedef struct sddf_snd_pcm_data_ring {
 
 typedef struct sddf_snd_rings {
     sddf_snd_cmd_ring_t *commands;
-    sddf_snd_response_ring_t *responses;
+    // We have one response queue each for message type to distinguish and
+    // decouple these three streams. For example, one process could handle
+    // commands, one could handle tx and one could handle rx.
+    sddf_snd_response_ring_t *cmd_responses;
 
     sddf_snd_pcm_data_ring_t *tx_used;
+    sddf_snd_response_ring_t *tx_responses;
+    // Free is separate from response as we want to respond immediately,
+    // but only dequeue from free when we are ready to send again.
+    // We could instead just have one queue, but this would require clients
+    // to have an internal queue data structure for free frames, and delay
+    // responses to until we get free frame.
     sddf_snd_pcm_data_ring_t *tx_free;
 
     sddf_snd_pcm_data_ring_t *rx_used;

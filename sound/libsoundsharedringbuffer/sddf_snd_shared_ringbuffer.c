@@ -11,9 +11,10 @@ void sddf_snd_ring_init(sddf_snd_ring_state_t *ring_state, uint32_t buffer_count
 void sddf_snd_rings_init_default(sddf_snd_rings_t *rings)
 {
     sddf_snd_ring_init(&rings->commands->state,  SDDF_SND_NUM_CMD_BUFFERS);
-    sddf_snd_ring_init(&rings->responses->state, SDDF_SND_NUM_CMD_BUFFERS);
+    sddf_snd_ring_init(&rings->cmd_responses->state, SDDF_SND_NUM_CMD_BUFFERS);
     sddf_snd_ring_init(&rings->tx_free->state, SDDF_SND_NUM_PCM_DATA_BUFFERS);
     sddf_snd_ring_init(&rings->tx_used->state, SDDF_SND_NUM_PCM_DATA_BUFFERS);
+    sddf_snd_ring_init(&rings->tx_responses->state, SDDF_SND_NUM_PCM_DATA_BUFFERS);
     sddf_snd_ring_init(&rings->rx_free->state, SDDF_SND_NUM_PCM_DATA_BUFFERS);
     sddf_snd_ring_init(&rings->rx_used->state, SDDF_SND_NUM_PCM_DATA_BUFFERS);
 }
@@ -55,7 +56,7 @@ int sddf_snd_enqueue_cmd(sddf_snd_cmd_ring_t *ring,
     return 0;
 }
 
-int sddf_snd_enqueue_response(sddf_snd_response_ring_t *ring, uint32_t cmd_id,
+int sddf_snd_enqueue_response(sddf_snd_response_ring_t *ring, uint32_t msg_id,
                               sddf_snd_status_code_t status)
 {
     if (sddf_snd_ring_full(&ring->state)) {
@@ -64,7 +65,7 @@ int sddf_snd_enqueue_response(sddf_snd_response_ring_t *ring, uint32_t cmd_id,
 
     sddf_snd_response_t *dest = &ring->buffers[ring->state.write_idx % ring->state.size];
 
-    dest->cmd_id = cmd_id;
+    dest->msg_id = msg_id;
     dest->status = status;
 
     THREAD_MEMORY_RELEASE();
@@ -116,7 +117,7 @@ int sddf_snd_dequeue_response(sddf_snd_response_ring_t *ring, sddf_snd_response_
 
     sddf_snd_response_t *response = &ring->buffers[ring->state.read_idx % ring->state.size];
 
-    out->cmd_id = response->cmd_id;
+    out->msg_id = response->msg_id;
     out->status = response->status;
 
     THREAD_MEMORY_RELEASE();
