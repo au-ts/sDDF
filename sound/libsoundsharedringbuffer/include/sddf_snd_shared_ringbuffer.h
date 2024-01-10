@@ -61,19 +61,19 @@ typedef struct sddf_snd_pcm_set_params {
 
 typedef struct sddf_snd_command {
     sddf_snd_command_code_t code;
-    uint32_t msg_id;
+    uint32_t cookie;
     uint32_t stream_id;
     sddf_snd_pcm_set_params_t set_params;
 } sddf_snd_command_t;
 
 typedef struct sddf_snd_response {
-    uint32_t msg_id;
+    uint32_t cookie;
     sddf_snd_status_code_t status;
 } sddf_snd_response_t;
 
 typedef struct sddf_snd_pcm_data {
+    uint32_t cookie;
     uint32_t stream_id;
-    uint32_t msg_id;
     uintptr_t addr;
     unsigned int len;
 } sddf_snd_pcm_data_t;
@@ -180,12 +180,12 @@ int sddf_snd_enqueue_cmd(sddf_snd_cmd_ring_t *ring, const sddf_snd_command_t *co
  * Enqueue a response into the response ring buffer.
  *
  * @param ring Response ring to enqueue to
- * @param cmd_id Command id
+ * @param cookie Cookie
  * @param status Status code
  *
  * @return -1 when ring is full, 0 on success.
  */
-int sddf_snd_enqueue_response(sddf_snd_response_ring_t *ring, uint32_t cmd_id,
+int sddf_snd_enqueue_response(sddf_snd_response_ring_t *ring, uint32_t cookie,
                               sddf_snd_status_code_t status);
 
 /**
