@@ -13,9 +13,7 @@
 #include "sddf_snd.h"
 
 /* Number of buffers the command ring is configured to have. */
-#define SDDF_SND_NUM_CMD_BUFFERS 512
-/* Number of buffers the data region is configured to have. */
-#define SDDF_SND_NUM_PCM_DATA_BUFFERS 512
+#define SDDF_SND_NUM_BUFFERS 512
 
 // @alexbr: investigate how large this needs to be.
 // currently the system assumes a PCM frame from virtio can fit
@@ -32,6 +30,7 @@ typedef enum {
     SDDF_SND_CMD_PCM_RELEASE,
     SDDF_SND_CMD_PCM_START,
     SDDF_SND_CMD_PCM_STOP,
+    SDDF_SND_CMD_PCM_TX,
 } sddf_snd_command_code_t;
 
 typedef enum {
@@ -59,11 +58,19 @@ typedef struct sddf_snd_pcm_set_params {
     uint8_t padding;
 } sddf_snd_pcm_set_params_t;
 
+typedef struct sddf_snd_pcm_data {
+    uintptr_t addr;
+    unsigned int len;
+} sddf_snd_pcm_data_t;
+
 typedef struct sddf_snd_command {
     sddf_snd_command_code_t code;
     uint32_t cookie;
     uint32_t stream_id;
-    sddf_snd_pcm_set_params_t set_params;
+    union {
+        sddf_snd_pcm_set_params_t set_params;
+        sddf_snd_pcm_data_t pcm;
+    };
 } sddf_snd_command_t;
 
 typedef struct sddf_snd_response {
@@ -71,12 +78,10 @@ typedef struct sddf_snd_response {
     sddf_snd_status_code_t status;
 } sddf_snd_response_t;
 
-typedef struct sddf_snd_pcm_data {
-    uint32_t cookie;
-    uint32_t stream_id;
-    uintptr_t addr;
-    unsigned int len;
-} sddf_snd_pcm_data_t;
+typedef struct sddf_snd_pcm_rx {
+    sddf_snd_status_code_t status;
+    sddf_snd_pcm_data_t data;
+} sddf_snd_pcm_rx_t;
 
 // Eventually this could be moved into its own library
 typedef struct sddf_snd_ring_state {
@@ -87,36 +92,30 @@ typedef struct sddf_snd_ring_state {
 
 typedef struct sddf_snd_cmd_ring_t {
     sddf_snd_ring_state_t state;
-    sddf_snd_command_t buffers[SDDF_SND_NUM_CMD_BUFFERS];
+    sddf_snd_command_t buffers[SDDF_SND_NUM_BUFFERS];
 } sddf_snd_cmd_ring_t;
 
 typedef struct sddf_snd_response_ring_t {
     sddf_snd_ring_state_t state;
-    sddf_snd_response_t buffers[SDDF_SND_NUM_CMD_BUFFERS];
+    sddf_snd_response_t buffers[SDDF_SND_NUM_BUFFERS];
 } sddf_snd_response_ring_t;
 
 typedef struct sddf_snd_pcm_data_ring {
     sddf_snd_ring_state_t state;
-    sddf_snd_pcm_data_t buffers[SDDF_SND_NUM_PCM_DATA_BUFFERS];
+    sddf_snd_pcm_data_t buffers[SDDF_SND_NUM_BUFFERS];
 } sddf_snd_pcm_data_ring_t;
+
+typedef struct sddf_snd_pcm_rx_ring {
+    sddf_snd_ring_state_t state;
+    sddf_snd_pcm_rx_t buffers[SDDF_SND_NUM_BUFFERS];
+} sddf_snd_pcm_rx_ring_t;
 
 typedef struct sddf_snd_rings {
     sddf_snd_cmd_ring_t *commands;
-    // We have one response queue each for message type to distinguish and
-    // decouple these three streams. For example, one process could handle
-    // commands, one could handle tx and one could handle rx.
-    sddf_snd_response_ring_t *cmd_responses;
-
-    sddf_snd_pcm_data_ring_t *tx_used;
-    sddf_snd_response_ring_t *tx_responses;
-    // Free is separate from response as we want to respond immediately,
-    // but only dequeue from free when we are ready to send again.
-    // We could instead just have one queue, but this would require clients
-    // to have an internal queue data structure for free frames, and delay
-    // responses to until we get free frame.
+    sddf_snd_response_ring_t *responses;
     sddf_snd_pcm_data_ring_t *tx_free;
 
-    sddf_snd_pcm_data_ring_t *rx_used;
+    sddf_snd_pcm_rx_ring_t   *rx_used;
     sddf_snd_pcm_data_ring_t *rx_free;
 } sddf_snd_rings_t;
 
@@ -191,20 +190,29 @@ int sddf_snd_enqueue_response(sddf_snd_response_ring_t *ring, uint32_t cookie,
 /**
  * Enqueue a PCM data element into the PCM data ring buffer.
  *
- * @param ring PCM data ring to enqueue to
- * @param stream_id Stream id
- * @param addr Address of PCM buffer
- * @param len Number of bytes in buffer
+ * @param ring PCM data ring to enqueue to.
+ * @param addr Address of PCM buffer.
+ * @param len Length in bytes of buffer.
  *
  * @return -1 when ring is full, 0 on success.
  */
-int sddf_snd_enqueue_pcm_data(sddf_snd_pcm_data_ring_t *ring, sddf_snd_pcm_data_t *pcm);
+int sddf_snd_enqueue_pcm_data(sddf_snd_pcm_data_ring_t *ring, uintptr_t addr, unsigned int len);
+
+/**
+ * Enqueue a PCM data element into the PCM data ring buffer.
+ *
+ * @param ring PCM rx ring to enqueue to.
+ * @param pcm PCM rx to enqueue.
+ *
+ * @return -1 when ring is full, 0 on success.
+ */
+int sddf_snd_enqueue_pcm_rx(sddf_snd_pcm_rx_ring_t *ring, sddf_snd_pcm_rx_t *pcm);
 
 /**
  * Dequeue an element from a command ring buffer.
  *
  * @param ring The command ring to dequeue from.
- * @param code pointer to command code.
+ * @param out Pointer to write command to.
  *
  * @return -1 when command ring is empty, 0 on success.
  */
@@ -214,7 +222,7 @@ int sddf_snd_dequeue_cmd(sddf_snd_cmd_ring_t *ring, sddf_snd_command_t *out);
  * Dequeue an element from a response ring buffer.
  *
  * @param ring The response ring to dequeue from.
- * @param code pointer to command code.
+ * @param out Pointer to write response to.
  *
  * @return -1 when command ring is empty, 0 on success.
  */
@@ -223,12 +231,22 @@ int sddf_snd_dequeue_response(sddf_snd_response_ring_t *ring, sddf_snd_response_
 /**
  * Dequeue an element from a pcm data ring buffer.
  *
- * @param pcm_ring The pcm data ring to dequeue from.
- * @param code pointer to command code.
+ * @param ring The pcm data ring to dequeue from.
+ * @param out Pointer to write pcm data to.
  *
  * @return -1 when command ring is empty, 0 on success.
  */
-int sddf_snd_dequeue_pcm_data(sddf_snd_pcm_data_ring_t *pcm_ring, sddf_snd_pcm_data_t *out);
+int sddf_snd_dequeue_pcm_data(sddf_snd_pcm_data_ring_t *ring, sddf_snd_pcm_data_t *out);
+
+/**
+ * Dequeue an element from a pcm rx ring buffer.
+ *
+ * @param ring The pcm data ring to dequeue from.
+ * @param out Pointer to write pcm rx to.
+ *
+ * @return -1 when command ring is empty, 0 on success.
+ */
+int sddf_snd_dequeue_pcm_rx(sddf_snd_pcm_rx_ring_t *ring, sddf_snd_pcm_rx_t *out);
 
 
 const char *sddf_snd_command_code_str(sddf_snd_command_code_t code);
