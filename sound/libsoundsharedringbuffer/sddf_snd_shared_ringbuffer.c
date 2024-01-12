@@ -52,7 +52,7 @@ int sddf_snd_enqueue_cmd(sddf_snd_cmd_ring_t *ring,
 }
 
 int sddf_snd_enqueue_response(sddf_snd_response_ring_t *ring, uint32_t cookie,
-                              sddf_snd_status_code_t status)
+                              sddf_snd_status_code_t status, uint32_t latency_bytes)
 {
     if (sddf_snd_ring_full(&ring->state)) {
         return -1;
@@ -62,6 +62,7 @@ int sddf_snd_enqueue_response(sddf_snd_response_ring_t *ring, uint32_t cookie,
 
     dest->cookie = cookie;
     dest->status = status;
+    dest->latency_bytes = latency_bytes;
 
     THREAD_MEMORY_RELEASE();
     ring->state.write_idx++;

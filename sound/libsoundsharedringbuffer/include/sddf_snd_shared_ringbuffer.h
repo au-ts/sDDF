@@ -76,6 +76,7 @@ typedef struct sddf_snd_command {
 typedef struct sddf_snd_response {
     uint32_t cookie;
     sddf_snd_status_code_t status;
+    uint32_t latency_bytes;
 } sddf_snd_response_t;
 
 typedef struct sddf_snd_pcm_rx {
@@ -185,7 +186,7 @@ int sddf_snd_enqueue_cmd(sddf_snd_cmd_ring_t *ring, const sddf_snd_command_t *co
  * @return -1 when ring is full, 0 on success.
  */
 int sddf_snd_enqueue_response(sddf_snd_response_ring_t *ring, uint32_t cookie,
-                              sddf_snd_status_code_t status);
+                              sddf_snd_status_code_t status, uint32_t latency_bytes);
 
 /**
  * Enqueue a PCM data element into the PCM data ring buffer.
