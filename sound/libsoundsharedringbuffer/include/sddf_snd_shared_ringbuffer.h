@@ -66,6 +66,7 @@ typedef struct sddf_snd_pcm_data {
 typedef struct sddf_snd_command {
     sddf_snd_command_code_t code;
     uint32_t cookie;
+    uint32_t id;
     uint32_t stream_id;
     union {
         sddf_snd_pcm_set_params_t set_params;
