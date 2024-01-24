@@ -43,7 +43,6 @@ typedef enum {
     SDDF_SND_S_BAD_MSG,
     SDDF_SND_S_NOT_SUPP,
     SDDF_SND_S_IO_ERR,
-    SDDF_SND_S_XRUN,
 } sddf_snd_status_code_t;
 
 typedef struct sddf_snd_pcm_set_params {
@@ -105,11 +104,11 @@ typedef struct sddf_snd_rings {
     sddf_snd_cmd_ring_t *commands;
     sddf_snd_response_ring_t *responses;
 
-    sddf_snd_pcm_data_ring_t *tx_used;
-    sddf_snd_pcm_data_ring_t *tx_free;
+    sddf_snd_pcm_data_ring_t *tx_req;
+    sddf_snd_pcm_data_ring_t *tx_res;
 
-    sddf_snd_pcm_data_ring_t *rx_used;
-    sddf_snd_pcm_data_ring_t *rx_free;
+    sddf_snd_pcm_data_ring_t *rx_req;
+    sddf_snd_pcm_data_ring_t *rx_res;
 } sddf_snd_rings_t;
 
 typedef struct sddf_snd_state {

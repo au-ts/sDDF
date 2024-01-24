@@ -12,10 +12,10 @@ void sddf_snd_rings_init_default(sddf_snd_rings_t *rings)
 {
     sddf_snd_ring_init(&rings->commands->state,  SDDF_SND_NUM_BUFFERS);
     sddf_snd_ring_init(&rings->responses->state, SDDF_SND_NUM_BUFFERS);
-    sddf_snd_ring_init(&rings->tx_used->state, SDDF_SND_NUM_BUFFERS);
-    sddf_snd_ring_init(&rings->tx_free->state, SDDF_SND_NUM_BUFFERS);
-    sddf_snd_ring_init(&rings->rx_free->state, SDDF_SND_NUM_BUFFERS);
-    sddf_snd_ring_init(&rings->rx_used->state, SDDF_SND_NUM_BUFFERS);
+    sddf_snd_ring_init(&rings->tx_req->state, SDDF_SND_NUM_BUFFERS);
+    sddf_snd_ring_init(&rings->tx_res->state, SDDF_SND_NUM_BUFFERS);
+    sddf_snd_ring_init(&rings->rx_req->state, SDDF_SND_NUM_BUFFERS);
+    sddf_snd_ring_init(&rings->rx_res->state, SDDF_SND_NUM_BUFFERS);
 }
 
 bool sddf_snd_ring_empty(sddf_snd_ring_state_t *ring_state)
