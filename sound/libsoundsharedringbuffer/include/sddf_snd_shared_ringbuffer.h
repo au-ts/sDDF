@@ -73,7 +73,7 @@ typedef struct sddf_snd_pcm_data {
     uint32_t stream_id;
     uintptr_t addr;
     unsigned int len;
-    // Only used in server -> client communication.
+    // Only used in responses.
     sddf_snd_status_code_t status;
     uint32_t latency_bytes;
 } sddf_snd_pcm_data_t;
