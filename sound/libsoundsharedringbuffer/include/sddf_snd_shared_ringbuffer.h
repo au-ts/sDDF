@@ -46,14 +46,9 @@ typedef enum {
 } sddf_snd_status_code_t;
 
 typedef struct sddf_snd_pcm_set_params {
-    uint32_t buffer_bytes;
-    // Size of a single buffer
-    uint32_t period_bytes;
-    uint32_t features; /* 1 << SDDF_SND_PCM_F_XXX */
     uint8_t channels;
     uint8_t format;
     uint8_t rate;
-    uint8_t padding;
 } sddf_snd_pcm_set_params_t;
 
 typedef struct sddf_snd_command {
