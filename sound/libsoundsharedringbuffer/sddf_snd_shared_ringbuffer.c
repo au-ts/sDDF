@@ -1,5 +1,6 @@
 #include "sddf_snd_shared_ringbuffer.h"
 #include "include/sddf_snd_shared_ringbuffer.h"
+#include <sddf/util/fence.h>
 
 void sddf_snd_ring_init(sddf_snd_ring_state_t *ring_state, uint32_t buffer_count)
 {

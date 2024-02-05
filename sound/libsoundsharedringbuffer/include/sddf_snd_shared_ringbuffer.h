@@ -9,7 +9,6 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
-#include "util/include/fence.h"
 #include "sddf_snd.h"
 
 /* Number of buffers the command ring is configured to have. */
