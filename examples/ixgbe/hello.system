@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+ Copyright 2021, Breakaway Consulting Pty. Ltd.
+
+ SPDX-License-Identifier: BSD-2-Clause
+-->
+<system>
+  <memory_region name="x550_0" size="0x100000000" phys_addr="0x404a800000"/>
+  <memory_region name="x550_1" size="0x4000" phys_addr="0x404ac04000"/>
+
+  <protection_domain name="hello" priority="1">
+    <program_image path="hello.elf" />
+
+    <map mr="x550_0" vaddr="0x200_000_000" perms="rw" cached="true" setvar_vaddr="r0"/>
+    <map mr="x550_1" vaddr="0x100_000_000" perms="rw" cached="true" setvar_vaddr="r1"/>
+
+    <!-- <irq irq="17" id="0"/> -->
+    <!-- <irq irq="16" id="1"/> -->
+  </protection_domain>
+</system>
