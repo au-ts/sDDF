@@ -32,6 +32,9 @@
 #define LWIP_TICK_MS 100
 
 #define _unused(x) ((void)(x))
+#ifndef MAC_ADDRESS
+#  define MAC_ADDRESS (0x525401000000ULL)
+#endif
 
 /* Memory regions. These all have to be here to keep compiler happy */
 uintptr_t rx_free;
@@ -449,15 +452,13 @@ static void netif_status_callback(struct netif *netif)
 static void get_mac(void)
 {
     /* For now just use a dummy hardcoded mac address.*/
-    state.mac[0] = 0x52;
-    state.mac[1] = 0x54;
-    state.mac[2] = 0x1;
-    state.mac[3] = 0;
-    state.mac[4] = 0;
-    if (!strcmp(microkit_name, "client0")) {
-        state.mac[5] = 0;
-    } else {
-        state.mac[5] = 0x1;
+    int i;
+    for (i = 5; i >= 0; --i) {
+        state.mac[5 - i] = 0xff & (MAC_ADDRESS >> (i*8));
+    }
+
+    if (strcmp(microkit_name, "client0")) {
+        state.mac[5] += 0x1;
     }
     /* microkit_ppcall(RX_CH, microkit_msginfo_new(0, 0));
     uint32_t palr = microkit_mr_get(0);

@@ -30,6 +30,9 @@ uintptr_t uart_base;
 
 #define BUF_SIZE 2048
 #define NUM_BUFFERS 512
+#ifndef MAC_BASE_ADDRESS
+#  define MAC_BASE_ADDRESS (0x525401000000ULL)
+#endif
 
 #define _unused(x) ((void)(x))
 
@@ -250,21 +253,15 @@ void notified(microkit_channel ch)
 
 void init(void)
 {
-    // set up client macs 
-    state.mac_addrs[0][0] = 0x52;
-    state.mac_addrs[0][1] = 0x54;
-    state.mac_addrs[0][2] = 0x1;
-    state.mac_addrs[0][3] = 0;
-    state.mac_addrs[0][4] = 0;
-    state.mac_addrs[0][5] = 10;
-
-    state.mac_addrs[1][0] = 0x52;
-    state.mac_addrs[1][1] = 0x54;
-    state.mac_addrs[1][2] = 0x1;
-    state.mac_addrs[1][3] = 0;
-    state.mac_addrs[1][4] = 0;
-    state.mac_addrs[1][5] = 11;
-
+    // set up client macs FIXME this should be done by the clients
+    int i;
+    int j;
+    for (j = 0; j < 2; j++) {
+        for (i = 5; i >= 0; --i) {
+            state.mac_addrs[j][5 - i] = 0xff & (MAC_BASE_ADDRESS >> (i*8));
+        }
+        state.mac_addrs[j][5] += 10 + j;
+    }
     // and for broadcast. 
     state.mac_addrs[2][0] = 0xff;
     state.mac_addrs[2][1] = 0xff;
