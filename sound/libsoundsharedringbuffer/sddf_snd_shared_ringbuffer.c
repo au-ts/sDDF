@@ -81,7 +81,12 @@ int sddf_snd_enqueue_pcm_data(sddf_snd_pcm_data_ring_t *ring, sddf_snd_pcm_data_
 
     sddf_snd_pcm_data_t *data = &ring->buffers[ring->state.write_idx % ring->state.size];
 
-    *data = *pcm;
+    data->cookie = pcm->cookie;
+    data->stream_id = pcm->stream_id;
+    data->addr = pcm->addr;
+    data->len = pcm->len;
+    data->status = pcm->status;
+    data->latency_bytes = pcm->latency_bytes;
 
     THREAD_MEMORY_RELEASE();
     ring->state.write_idx++;
@@ -129,7 +134,14 @@ int sddf_snd_dequeue_pcm_data(sddf_snd_pcm_data_ring_t *ring, sddf_snd_pcm_data_
         return -1;
     }
 
-    *out = ring->buffers[ring->state.read_idx % ring->state.size];
+    sddf_snd_pcm_data_t *pcm = &ring->buffers[ring->state.read_idx % ring->state.size];
+
+    out->cookie = pcm->cookie;
+    out->stream_id = pcm->stream_id;
+    out->addr = pcm->addr;
+    out->len = pcm->len;
+    out->status = pcm->status;
+    out->latency_bytes = pcm->latency_bytes;
 
     THREAD_MEMORY_RELEASE();
     ring->state.read_idx++;
