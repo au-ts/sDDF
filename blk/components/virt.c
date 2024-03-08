@@ -89,17 +89,16 @@ void init(void) {
 #endif
 
     // @ericc: Hack, spin wait for config from driver to be set
-    while (!(((blk_storage_info_t *)blk_config_driver)->ready)) asm("");
+    // while (!(((blk_storage_info_t *)blk_config_driver)->ready)) asm("");
     
     // @ericc: determine config values from partitioner, for now hard code here
-    ((blk_storage_info_t *)blk_config)->blocksize = ((blk_storage_info_t *)blk_config_driver)->blocksize;
-    ((blk_storage_info_t *)blk_config)->size = ((blk_storage_info_t *)blk_config_driver)->size;
+    // ((blk_storage_info_t *)blk_config)->blocksize = ((blk_storage_info_t *)blk_config_driver)->blocksize;
+    // ((blk_storage_info_t *)blk_config)->size = ((blk_storage_info_t *)blk_config_driver)->size;
     ((blk_storage_info_t *)blk_config)->ready = true;
-
 #if BLK_NUM_CLIENTS > 1
     // Need to initialise these based on partitioner, right now both clients write into the same disk space
-    ((blk_storage_info_t *)blk_config2)->blocksize = ((blk_storage_info_t *)blk_config_driver)->blocksize;
-    ((blk_storage_info_t *)blk_config2)->size = ((blk_storage_info_t *)blk_config_driver)->size;
+    // ((blk_storage_info_t *)blk_config2)->blocksize = ((blk_storage_info_t *)blk_config_driver)->blocksize;
+    // ((blk_storage_info_t *)blk_config2)->size = ((blk_storage_info_t *)blk_config_driver)->size;
     ((blk_storage_info_t *)blk_config2)->ready = true;
 #endif
 }
@@ -143,7 +142,7 @@ static void handle_driver() {
             switch(cli_data.code) {
                 case READ_BLOCKS:
                     // Invalidate cache
-                    // microkit_arm_vspace_data_invalidate(cli_data.drv_addr, cli_data.drv_addr + (BUFFER_SIZE * cli_data.count));
+                    seL4_ARM_VSpace_Invalidate_Data(3, cli_data.drv_addr, cli_data.drv_addr + (BUFFER_SIZE * cli_data.count));
                     // Copy data buffers from driver to client
                     memcpy((void *)cli_data.cli_addr, (void *)cli_data.drv_addr, BUFFER_SIZE * cli_data.count);
                     blk_enqueue_resp(&h, SUCCESS, cli_data.cli_addr, cli_data.count, drv_success_count, cli_data.cli_req_id);
@@ -203,7 +202,7 @@ static void handle_client(int cli_id) {
                 // Copy data buffers from client to driver
                 memcpy((void *)drv_addr, (void *)cli_addr, BUFFER_SIZE * cli_count);
                 // Flush the cache
-                // microkit_arm_vspace_data_clean(drv_addr, drv_addr + (BUFFER_SIZE * cli_count));
+                seL4_ARM_VSpace_Clean_Data(3, drv_addr, drv_addr + (BUFFER_SIZE * cli_count));
                 break;
             case FLUSH:
             case BARRIER:
