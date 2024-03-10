@@ -1,5 +1,4 @@
-#include "sddf_snd_shared_ringbuffer.h"
-#include "include/sddf_snd_shared_ringbuffer.h"
+#include <sddf/sound/sound_queue.h>
 #include <sddf/util/fence.h>
 
 void sddf_snd_ring_init(sddf_snd_ring_state_t *ring_state, uint32_t buffer_count)
@@ -174,7 +173,7 @@ sddf_snd_pcm_data_t *sddf_snd_pcm_data_front(sddf_snd_pcm_data_ring_t *ring)
 const char *sddf_snd_command_code_str(sddf_snd_command_code_t code)
 {
     switch (code) {
-        case SDDF_SND_CMD_PCM_SET_PARAMS:
+        case SDDF_SND_CMD_PCM_TAKE:
             return "PCM_SET_PARAMS";
         case SDDF_SND_CMD_PCM_PREPARE:
             return "PCM_PREPARE";

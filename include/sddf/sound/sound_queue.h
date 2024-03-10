@@ -9,22 +9,13 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
-#include "sddf_snd.h"
+#include <sddf/sound/sound.h>
 
-/* Number of buffers the command ring is configured to have. */
 #define SDDF_SND_NUM_BUFFERS 512
-
-// @alexbr: investigate how large this needs to be.
-// currently the system assumes a PCM frame from virtio can fit
-// into a single one of these buffers, so we need to make sure
-// we only allow PCM streams whose buffers fit.
-// (consider sample rate, #channels, ..?)
 #define SDDF_SND_PCM_BUFFER_SIZE 4096
 
 typedef enum {
-    // PCM set params command
-    SDDF_SND_CMD_PCM_SET_PARAMS,
-    // Simple commands
+    SDDF_SND_CMD_PCM_TAKE,
     SDDF_SND_CMD_PCM_PREPARE,
     SDDF_SND_CMD_PCM_RELEASE,
     SDDF_SND_CMD_PCM_START,
@@ -32,16 +23,16 @@ typedef enum {
 } sddf_snd_command_code_t;
 
 typedef enum {
-    /* PCM event types */
     SDDF_SND_EVT_PCM_PERIOD_ELAPSED,
     SDDF_SND_EVT_PCM_XRUN,
 } sddf_snd_event_code_t;
 
 typedef enum {
-    SDDF_SND_S_OK,
+    SDDF_SND_S_OK = 0,
     SDDF_SND_S_BAD_MSG,
     SDDF_SND_S_NOT_SUPP,
     SDDF_SND_S_IO_ERR,
+    SDDF_SND_S_BUSY,
 } sddf_snd_status_code_t;
 
 typedef struct sddf_snd_pcm_set_params {
