@@ -9,8 +9,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
-// #include "util/include/util.h"
-#include "fence.h"
+#include <sddf/util/fence.h>
 
 /* Number of buffers each ring is configured to have. */
 #define NUM_BUFFERS 512

@@ -3,9 +3,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <microkit.h>
-#include <sel4/sel4.h>
 #include <sddf/serial/shared_ringbuffer.h>
-#include "util.h"
+#include <sddf/serial/util.h>
 #include "uart.h"
 
 #define DRIVER_CH 9
@@ -17,7 +16,7 @@
 #define COLOUR_START_LEN 5
 #define COLOUR_END_LEN 4
 
-#define MAX_NUM_CLIENTS 1
+#define MAX_NUM_CLIENTS 2
 
 /* This is a simple sanity check that we have defined as many colours
    as the user as specified clients */
@@ -25,7 +24,7 @@
 #error "There are more clients then there are colours to differentiate them"
 #endif
 
-char *client_colours[MAX_NUM_CLIENTS] = { "\x1b[31m", "\x1b[32m" };
+char *client_colours[MAX_NUM_CLIENTS] = { "\x1b[32m", "\x1b[31m" };
 char *client_colour_end = "\x1b[0m";
 
 /* Memory regions as defined in the system file */
@@ -37,9 +36,12 @@ uintptr_t tx_used_driver;
 // Transmit rings with the client
 uintptr_t tx_free_client;
 uintptr_t tx_used_client;
+uintptr_t tx_free_client2;
+uintptr_t tx_used_client2;
 
 uintptr_t tx_data_driver;
 uintptr_t tx_data_client;
+uintptr_t tx_data_client2;
 
 // Have an array of client rings.
 ring_handle_t tx_ring[SERIAL_NUM_CLIENTS];
@@ -104,7 +106,7 @@ int handle_tx(int curr_client) {
              * like that even if they have multiple clients, which is why this
              * is configurable behaviour.
              */
-#ifdef SERIAL_TRANSFER_WITH_COLOUR 
+#ifdef SERIAL_TRANSFER_WITH_COLOUR
             size_t len_copied = copy_with_colour(client, client_buf_len, (char *)driver_buf, (char *)client_buf);
 #else
             size_t len_copied = copy_normal(client_buf_len, (char *)driver_buf, (char *)client_buf);
@@ -139,6 +141,10 @@ int handle_tx(int curr_client) {
 void init (void) {
     // We want to init the client rings here. Currently this only inits one client
     ring_init(&tx_ring[0], (ring_buffer_t *)tx_free_client, (ring_buffer_t *)tx_used_client, 0, NUM_BUFFERS, NUM_BUFFERS);
+    // @ivanv: terrible temporary hack
+#if SERIAL_NUM_CLIENTS > 1
+    ring_init(&tx_ring[1], (ring_buffer_t *)tx_free_client2, (ring_buffer_t *)tx_used_client2, 0, NUM_BUFFERS, NUM_BUFFERS);
+#endif
     ring_init(&drv_tx_ring, (ring_buffer_t *)tx_free_driver, (ring_buffer_t *)tx_used_driver, 0, NUM_BUFFERS, NUM_BUFFERS);
 
     // Add buffers to the drv tx ring from our shared dma region

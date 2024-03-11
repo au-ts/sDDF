@@ -2,16 +2,15 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <microkit.h>
-#include <sel4/sel4.h>
 #include <sddf/serial/shared_ringbuffer.h>
-#include "util.h"
+#include <sddf/serial/util.h>
 #include "uart.h"
 #include "uart_config.h"
 
 #define CLI_CH 1
 #define DRV_CH 11
 
-#ifndef SERIAL_NUM_CLIENTS 
+#ifndef SERIAL_NUM_CLIENTS
 #error "SERIAL_NUM_CLIENTS is expected to be defined for RX serial multiplexor"
 #endif
 
@@ -24,10 +23,13 @@ uintptr_t rx_used_driver;
 // Transmit rings with the client
 uintptr_t rx_free_client;
 uintptr_t rx_used_client;
+uintptr_t rx_free_client2;
+uintptr_t rx_used_client2;
 
 uintptr_t rx_data_driver;
 // @ivanv: unused
 uintptr_t rx_data_client;
+uintptr_t rx_data_client2;
 
 // Have an array of client rings.
 ring_handle_t rx_ring[SERIAL_NUM_CLIENTS];
@@ -180,11 +182,11 @@ void handle_rx() {
                 int new_client = atoi(&got_char);
                 if (new_client < 1 || new_client > SERIAL_NUM_CLIENTS) {
                     microkit_dbg_puts("MUX|RX: Attempted to switch to invalid client number: ");
-                    // puthex64(new_client);
+                    puthex64(new_client);
                     microkit_dbg_puts("\n");
                 } else {
                     microkit_dbg_puts("MUX|RX: Switching to client number: ");
-                    // puthex64(new_client);
+                    puthex64(new_client);
                     microkit_dbg_puts("\n");
                     client = new_client;
                 }
@@ -239,6 +241,10 @@ void handle_rx() {
 void init (void) {
     // We want to init the client rings here. Currently this only inits one client
     ring_init(&rx_ring[0], (ring_buffer_t *)rx_free_client, (ring_buffer_t *)rx_used_client, 0, NUM_BUFFERS, NUM_BUFFERS);
+    // @ivanv: terrible temporary hack
+#if SERIAL_NUM_CLIENTS > 1
+    ring_init(&rx_ring[1], (ring_buffer_t *)rx_free_client2, (ring_buffer_t *)rx_used_client2, 0, NUM_BUFFERS, NUM_BUFFERS);
+#endif
 
     ring_init(&drv_rx_ring, (ring_buffer_t *)rx_free_driver, (ring_buffer_t *)rx_used_driver, 0, NUM_BUFFERS, NUM_BUFFERS);
 
