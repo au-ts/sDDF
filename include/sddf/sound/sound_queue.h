@@ -41,17 +41,17 @@ typedef struct sddf_snd_pcm_set_params {
     uint8_t rate;
 } sddf_snd_pcm_set_params_t;
 
-typedef struct sddf_snd_command {
+typedef struct sddf_snd_cmd {
     sddf_snd_command_code_t code;
     uint32_t cookie;
     uint32_t stream_id;
-    sddf_snd_pcm_set_params_t set_params;
-} sddf_snd_command_t;
-
-typedef struct sddf_snd_response {
-    uint32_t cookie;
-    sddf_snd_status_code_t status;
-} sddf_snd_response_t;
+    union {
+        // Set on TAKE request
+        sddf_snd_pcm_set_params_t set_params;
+        // Set on all responses
+        sddf_snd_status_code_t status;
+    };
+} sddf_snd_cmd_t;
 
 typedef struct sddf_snd_pcm_data {
     uint32_t cookie;
@@ -72,13 +72,8 @@ typedef struct sddf_snd_ring_state {
 
 typedef struct sddf_snd_cmd_ring_t {
     sddf_snd_ring_state_t state;
-    sddf_snd_command_t buffers[SDDF_SND_NUM_BUFFERS];
+    sddf_snd_cmd_t buffers[SDDF_SND_NUM_BUFFERS];
 } sddf_snd_cmd_ring_t;
-
-typedef struct sddf_snd_response_ring_t {
-    sddf_snd_ring_state_t state;
-    sddf_snd_response_t buffers[SDDF_SND_NUM_BUFFERS];
-} sddf_snd_response_ring_t;
 
 typedef struct sddf_snd_pcm_data_ring {
     sddf_snd_ring_state_t state;
@@ -86,14 +81,11 @@ typedef struct sddf_snd_pcm_data_ring {
 } sddf_snd_pcm_data_ring_t;
 
 typedef struct sddf_snd_rings {
-    sddf_snd_cmd_ring_t *commands;
-    sddf_snd_response_ring_t *responses;
+    sddf_snd_cmd_ring_t *cmd_req;
+    sddf_snd_cmd_ring_t *cmd_res;
 
-    sddf_snd_pcm_data_ring_t *tx_req;
-    sddf_snd_pcm_data_ring_t *tx_res;
-
-    sddf_snd_pcm_data_ring_t *rx_req;
-    sddf_snd_pcm_data_ring_t *rx_res;
+    sddf_snd_pcm_data_ring_t *pcm_req;
+    sddf_snd_pcm_data_ring_t *pcm_res;
 } sddf_snd_rings_t;
 
 typedef struct sddf_snd_state {
@@ -150,17 +142,7 @@ int sddf_snd_ring_size(sddf_snd_ring_state_t *ring_state);
  *
  * @return -1 when command ring is full, 0 on success.
  */
-int sddf_snd_enqueue_cmd(sddf_snd_cmd_ring_t *ring, const sddf_snd_command_t *command);
-
-/**
- * Enqueue a response into the response ring buffer.
- *
- * @param ring Response ring to enqueue to
- * @param status Status code
- *
- * @return -1 when ring is full, 0 on success.
- */
-int sddf_snd_enqueue_response(sddf_snd_response_ring_t *ring, sddf_snd_response_t *response);
+int sddf_snd_enqueue_cmd(sddf_snd_cmd_ring_t *ring, const sddf_snd_cmd_t *command);
 
 /**
  * Enqueue a PCM data element into the PCM data ring buffer.
@@ -180,17 +162,7 @@ int sddf_snd_enqueue_pcm_data(sddf_snd_pcm_data_ring_t *ring, sddf_snd_pcm_data_
  *
  * @return -1 when command ring is empty, 0 on success.
  */
-int sddf_snd_dequeue_cmd(sddf_snd_cmd_ring_t *ring, sddf_snd_command_t *out);
-
-/**
- * Dequeue an element from a response ring buffer.
- *
- * @param ring The response ring to dequeue from.
- * @param out Pointer to write response to.
- *
- * @return -1 when command ring is empty, 0 on success.
- */
-int sddf_snd_dequeue_response(sddf_snd_response_ring_t *ring, sddf_snd_response_t *out);
+int sddf_snd_dequeue_cmd(sddf_snd_cmd_ring_t *ring, sddf_snd_cmd_t *out);
 
 /**
  * Dequeue an element from a pcm data ring buffer.
@@ -218,7 +190,7 @@ int sddf_snd_ring_dequeue(sddf_snd_ring_state_t *ring);
  *
  * @return Command
  */
-sddf_snd_command_t *sddf_snd_cmd_ring_front(sddf_snd_cmd_ring_t *ring);
+sddf_snd_cmd_t *sddf_snd_cmd_ring_front(sddf_snd_cmd_ring_t *ring);
 
 /**
  * Get a reference to the head of a PCM data queue.

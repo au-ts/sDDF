@@ -10,12 +10,10 @@ void sddf_snd_ring_init(sddf_snd_ring_state_t *ring_state, uint32_t buffer_count
 
 void sddf_snd_rings_init_default(sddf_snd_rings_t *rings)
 {
-    sddf_snd_ring_init(&rings->commands->state,  SDDF_SND_NUM_BUFFERS);
-    sddf_snd_ring_init(&rings->responses->state, SDDF_SND_NUM_BUFFERS);
-    sddf_snd_ring_init(&rings->tx_req->state, SDDF_SND_NUM_BUFFERS);
-    sddf_snd_ring_init(&rings->tx_res->state, SDDF_SND_NUM_BUFFERS);
-    sddf_snd_ring_init(&rings->rx_req->state, SDDF_SND_NUM_BUFFERS);
-    sddf_snd_ring_init(&rings->rx_res->state, SDDF_SND_NUM_BUFFERS);
+    sddf_snd_ring_init(&rings->cmd_req->state,  SDDF_SND_NUM_BUFFERS);
+    sddf_snd_ring_init(&rings->cmd_res->state, SDDF_SND_NUM_BUFFERS);
+    sddf_snd_ring_init(&rings->pcm_req->state, SDDF_SND_NUM_BUFFERS);
+    sddf_snd_ring_init(&rings->pcm_res->state, SDDF_SND_NUM_BUFFERS);
 }
 
 bool sddf_snd_ring_empty(sddf_snd_ring_state_t *ring_state)
@@ -36,35 +34,18 @@ int sddf_snd_ring_size(sddf_snd_ring_state_t *ring_state)
 }
 
 int sddf_snd_enqueue_cmd(sddf_snd_cmd_ring_t *ring,
-                         const sddf_snd_command_t *command)
+                         const sddf_snd_cmd_t *command)
 {
     if (sddf_snd_ring_full(&ring->state)) {
         return -1;
     }
 
-    sddf_snd_command_t *dest = &ring->buffers[ring->state.write_idx % ring->state.size];
+    sddf_snd_cmd_t *dest = &ring->buffers[ring->state.write_idx % ring->state.size];
 
     dest->code = command->code;
     dest->cookie = command->cookie;
     dest->stream_id = command->stream_id;
     dest->set_params = command->set_params;
-
-    THREAD_MEMORY_RELEASE();
-    ring->state.write_idx++;
-
-    return 0;
-}
-
-int sddf_snd_enqueue_response(sddf_snd_response_ring_t *ring, sddf_snd_response_t *response)
-{
-    if (sddf_snd_ring_full(&ring->state)) {
-        return -1;
-    }
-
-    sddf_snd_response_t *dest = &ring->buffers[ring->state.write_idx % ring->state.size];
-
-    dest->cookie = response->cookie;
-    dest->status = response->status;
 
     THREAD_MEMORY_RELEASE();
     ring->state.write_idx++;
@@ -93,33 +74,17 @@ int sddf_snd_enqueue_pcm_data(sddf_snd_pcm_data_ring_t *ring, sddf_snd_pcm_data_
     return 0;
 }
 
-int sddf_snd_dequeue_cmd(sddf_snd_cmd_ring_t *ring, sddf_snd_command_t *out)
+int sddf_snd_dequeue_cmd(sddf_snd_cmd_ring_t *ring, sddf_snd_cmd_t *out)
 {
     if (sddf_snd_ring_empty(&ring->state)) {
         return -1;
     }
 
-    sddf_snd_command_t *src = &ring->buffers[ring->state.read_idx % ring->state.size];
+    sddf_snd_cmd_t *src = &ring->buffers[ring->state.read_idx % ring->state.size];
     out->code = src->code;
     out->cookie = src->cookie;
     out->stream_id = src->stream_id;
     out->set_params = src->set_params;
-
-    THREAD_MEMORY_RELEASE();
-    ring->state.read_idx++;
-
-    return 0;
-}
-
-int sddf_snd_dequeue_response(sddf_snd_response_ring_t *ring, sddf_snd_response_t *out)
-{
-    if (sddf_snd_ring_empty(&ring->state)) {
-        return -1;
-    }
-
-    sddf_snd_response_t *response = &ring->buffers[ring->state.read_idx % ring->state.size];
-
-    *out = *response;
 
     THREAD_MEMORY_RELEASE();
     ring->state.read_idx++;
@@ -160,7 +125,7 @@ int sddf_snd_ring_dequeue(sddf_snd_ring_state_t *ring)
     return 0;
 }
 
-sddf_snd_command_t *sddf_snd_cmd_ring_front(sddf_snd_cmd_ring_t *ring)
+sddf_snd_cmd_t *sddf_snd_cmd_ring_front(sddf_snd_cmd_ring_t *ring)
 {
     return &ring->buffers[ring->state.read_idx % ring->state.size];
 }
