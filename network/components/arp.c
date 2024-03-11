@@ -1,7 +1,6 @@
 #include <microkit.h>
 #include <sddf/network/shared_ringbuffer.h>
 #include "util.h"
-#include "cache.h"
 #include <string.h>
 #include "lwip/ip_addr.h"
 #include "netif/etharp.h"
@@ -17,6 +16,68 @@
 #define BUF_SIZE 2048
 #define NUM_BUFFERS 512
 #define SHARED_DMA_SIZE (BUF_SIZE * NUM_BUFFERS)
+
+#define _unused(x) ((void)(x))
+
+
+#define ROUND_DOWN(n, b) (((n) >> (b)) << (b))
+#define LINE_START(a) ROUND_DOWN(a, CONFIG_L1_CACHE_LINE_SIZE_BITS)
+#define LINE_INDEX(a) (LINE_START(a)>>CONFIG_L1_CACHE_LINE_SIZE_BITS)
+
+static inline void
+dsb(void)
+{
+    asm volatile("dsb sy" ::: "memory");
+}
+
+static inline void 
+dmb(void)
+{
+    asm volatile("dmb sy" ::: "memory");
+}
+
+static inline void
+cleanInvalByVA(unsigned long vaddr)
+{
+    asm volatile("dc civac, %0" : : "r"(vaddr));
+    dsb();
+}
+
+static inline void
+cleanByVA(unsigned long vaddr)
+{
+    asm volatile("dc cvac, %0" : : "r"(vaddr));
+    dmb();
+}
+
+static void
+cleanInvalidateCache(unsigned long start, unsigned long end)
+{
+    unsigned long line;
+    unsigned long index;
+    /* Clean the L1 range */
+
+    /* Finally clean and invalidate the L1 range. The extra clean is only strictly neccessary
+     * in a multiprocessor environment to prevent a write being lost if another core is
+     * attempting a store at the same time. As the range should already be clean asking
+     * it to clean again should not affect performance */
+    for (index = LINE_INDEX(start); index < LINE_INDEX(end) + 1; index++) {
+        line = index << CONFIG_L1_CACHE_LINE_SIZE_BITS;
+        cleanInvalByVA(line);
+    }
+}
+
+static void
+cleanCache(unsigned long start, unsigned long end)
+{
+    unsigned long line;
+    unsigned long index;
+
+    for (index = LINE_INDEX(start); index < LINE_INDEX(end) + 1; index++) {
+        line = index << CONFIG_L1_CACHE_LINE_SIZE_BITS;
+        cleanByVA(line);
+    }
+}
 
 uintptr_t rx_free;
 uintptr_t rx_used;
@@ -101,10 +162,10 @@ match_arp_to_client(uint32_t addr)
 }
 
 int
-arp_reply(const uint8_t *ethsrc_addr[ETH_HWADDR_LEN],
-          const uint8_t *ethdst_addr[ETH_HWADDR_LEN],
-          const uint8_t *hwsrc_addr[ETH_HWADDR_LEN], const uint32_t ipsrc_addr,
-          const uint8_t *hwdst_addr[ETH_HWADDR_LEN], const uint32_t ipdst_addr)
+arp_reply(const uint8_t ethsrc_addr[ETH_HWADDR_LEN],
+          const uint8_t ethdst_addr[ETH_HWADDR_LEN],
+          const uint8_t hwsrc_addr[ETH_HWADDR_LEN], const uint32_t ipsrc_addr,
+          const uint8_t hwdst_addr[ETH_HWADDR_LEN], const uint32_t ipdst_addr)
 {
     int err = 0;
     uintptr_t addr;
@@ -161,6 +222,7 @@ void
 process_rx_complete(void)
 {
     uint32_t transmitted = 0;
+    process_rx_complete_: 
     while (!ring_empty(rx_ring.used_ring)) {
         int err;
         uintptr_t addr;
@@ -169,6 +231,7 @@ process_rx_complete(void)
         int client = -1;
 
         err = dequeue_used(&rx_ring, &addr, &len, (void **)&cookie);
+        _unused(err);
         assert(!err);
 
         // Check if it's an ARP request 
@@ -181,11 +244,11 @@ process_rx_complete(void)
                 client = match_arp_to_client(pkt->ipdst_addr);
                 if (client >= 0) {
                     // if so, send a response. 
-                    if (!arp_reply(&mac_addrs[client],
-                                &pkt->ethsrc_addr,
-                                &mac_addrs[client],
+                    if (!arp_reply(mac_addrs[client],
+                                pkt->ethsrc_addr,
+                                mac_addrs[client],
                                 pkt->ipdst_addr,
-                                &pkt->hwsrc_addr,
+                                pkt->hwsrc_addr,
                                 pkt->ipsrc_addr))
                     {
                         transmitted++;
@@ -198,8 +261,16 @@ process_rx_complete(void)
         assert(!err);
     }
 
+    rx_ring.used_ring->notify_reader = true;
+
+    if (!ring_empty(rx_ring.used_ring)) {
+        rx_ring.used_ring->notify_reader = false;
+        goto process_rx_complete_;
+    }
+
     if (transmitted) {
         // notify tx mux
+        tx_ring.used_ring->notify_reader = false;
         microkit_notify_delayed(TX_CH);
     }
 }
@@ -277,6 +348,9 @@ init(void)
     /* Set up shared memory regions */
     ring_init(&rx_ring, (ring_buffer_t *)rx_free, (ring_buffer_t *)rx_used, 0, NUM_BUFFERS, NUM_BUFFERS);
     ring_init(&tx_ring, (ring_buffer_t *)tx_free, (ring_buffer_t *)tx_used, 0, NUM_BUFFERS, NUM_BUFFERS);
+
+    rx_ring.used_ring->notify_reader = true;
+    tx_ring.free_ring->notify_reader = true;
 
     /* Set up hardcoded mac addresses */
     mac_addrs[0][0] = 0x52;

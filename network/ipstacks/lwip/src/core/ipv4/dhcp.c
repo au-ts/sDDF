@@ -1985,12 +1985,6 @@ dhcp_supplied_address(const struct netif *netif)
     return (dhcp->state == DHCP_STATE_BOUND) || (dhcp->state == DHCP_STATE_RENEWING) ||
            (dhcp->state == DHCP_STATE_REBINDING);
   }
-  microkit_dbg_puts("supplied netif bad: ");
-  if (netif == NULL) {
-    microkit_dbg_puts("netif was null\n");
-  } else {
-    microkit_dbg_puts("netif dhcp data was null\n");
-  }
   return 0;
 }
 

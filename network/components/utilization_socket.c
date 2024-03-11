@@ -75,7 +75,6 @@ uint64_t idle_overflow_start;
 
 static err_t profiler_sent_callback(void *arg, struct tcp_pcb *pcb, u16_t len)
 {
-    microkit_dbg_puts("sent callback\n");
     return ERR_OK;
 }
 

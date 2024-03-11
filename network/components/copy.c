@@ -1,6 +1,7 @@
 #include <microkit.h>
 #include <sddf/network/shared_ringbuffer.h>
 #include "util.h"
+#include "fence.h"
 #include <string.h>
 #include <stdbool.h>
 
@@ -21,23 +22,27 @@ uintptr_t uart_base;
 #define NUM_BUFFERS 512
 #define SHARED_DMA_SIZE (BUF_SIZE * NUM_BUFFERS)
 
+#define _unused(x) ((void)(x))
+
 ring_handle_t rx_ring_mux;
 ring_handle_t rx_ring_cli;
 
 void process_rx_complete(void)
 {
-    uint64_t enqueued = 0;
+    bool enqueued = false;
+    process_rx_complete_:
     // We only want to copy buffers if all the dequeues and enqueues will be successful
     while (!ring_empty(rx_ring_mux.used_ring) &&
             !ring_empty(rx_ring_cli.free_ring) &&
             !ring_full(rx_ring_mux.free_ring) &&
             !ring_full(rx_ring_cli.used_ring)) {
 
-        uintptr_t m_addr, c_addr = 0;
-        unsigned int m_len, c_len = 0;
+        uintptr_t m_addr = 0, c_addr = 0;
+        unsigned int m_len = 0, c_len = 0;
         void *cookie = NULL;
         void *cookie2 = NULL;
         int err;
+        _unused(err);
 
         err = dequeue_used(&rx_ring_mux, &m_addr, &m_len, &cookie);
         assert(!err);
@@ -75,48 +80,40 @@ void process_rx_complete(void)
         err = enqueue_free(&rx_ring_mux, m_addr, BUF_SIZE, cookie);
         assert(!err);
 
-        enqueued += 1;
+        enqueued = true;
     }
+    
+    rx_ring_mux.used_ring->notify_reader = true;
+
+    if (!ring_empty(rx_ring_mux.used_ring)) rx_ring_cli.free_ring->notify_reader = true;
+    else rx_ring_cli.free_ring->notify_reader = false;
+
+
+    THREAD_MEMORY_FENCE();
+    if (!ring_empty(rx_ring_mux.used_ring) && !ring_empty(rx_ring_cli.free_ring) &&
+        !ring_full(rx_ring_mux.free_ring) && !ring_full(rx_ring_cli.used_ring)) {
+        rx_ring_mux.used_ring->notify_reader = false;
+        rx_ring_cli.free_ring->notify_reader = false;
+        goto process_rx_complete_;
+    }
+
 
     if (rx_ring_cli.used_ring->notify_reader && enqueued) {
-        microkit_notify_delayed(CLIENT_CH);
+        rx_ring_cli.used_ring->notify_reader = false;
+        microkit_notify(CLIENT_CH);
     }
 
-    /* We want to inform the mux that more free buffers are available or the 
-        used ring can now be refilled */
-    if (enqueued && (rx_ring_mux.free_ring->notify_reader || rx_ring_mux.used_ring->notify_writer)) {
-        if (have_signal && signal_cap == BASE_OUTPUT_NOTIFICATION_CAP + CLIENT_CH) {
-            // We need to notify the client, but this should
-            // happen first. 
-            microkit_notify(CLIENT_CH);
-        }
-
+    /* We want to inform the mux that more free buffers are available */
+    if (enqueued && rx_ring_mux.free_ring->notify_reader) {
+        rx_ring_mux.free_ring->notify_reader = false;
         microkit_notify_delayed(MUX_RX_CH);
-    }
-
-    if (!ring_empty(rx_ring_mux.used_ring) || rx_ring_mux.free_ring->notify_reader) {
-        // we want to be notified when this changes so we can continue
-        // enqueuing packets to the client.
-        rx_ring_cli.free_ring->notify_reader = true;
-        // we don't need a notification from the multiplexer now. 
-        // rx_ring_mux.used_ring->notify_reader = false;
-    } else {
-        rx_ring_cli.free_ring->notify_reader = false;
-        // rx_ring_mux.used_ring->notify_reader = true;
     }
 }
 
 void notified(microkit_channel ch)
 {
-    if (ch == CLIENT_CH || ch == MUX_RX_CH) {
-        /* We have one job. */
-        process_rx_complete();
-    } else {
-        print("COPY|ERROR: unexpected notification from channel: ");
-        puthex64(ch);
-        print("\n");
-        assert(0);
-    }
+    /* We have one job. */
+    process_rx_complete();
 }
 
 void init(void)

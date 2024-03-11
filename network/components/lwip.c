@@ -395,7 +395,6 @@ static err_t ethernet_init(struct netif *netif)
 
 static void netif_status_callback(struct netif *netif)
 {
-    microkit_dbg_puts("IN NETIF STATUS CALLBACK\n");
     if (dhcp_supplied_address(netif)) {
         /* Tell the ARP component so we it can respond to ARP requests. */
         microkit_mr_set(0, ip4_addr_get_u32(netif_ip4_addr(netif)));

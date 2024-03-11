@@ -4,8 +4,8 @@
  */
 
 #include <sddf/network/shared_ringbuffer.h>
-#include "util.h"
-#include "fence.h"
+#include <sddf/util/util.h>
+#include <sddf/util/fence.h>
 
 void ring_init(ring_handle_t *ring, ring_buffer_t *free, ring_buffer_t *used, int buffer_init, uint32_t free_size, uint32_t used_size)
 {
