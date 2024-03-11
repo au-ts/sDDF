@@ -69,6 +69,9 @@ static void *memcpy(void *restrict dest, const void *restrict src, size_t n)
 }
 
 void init(void) {
+    // @ericc: Hack, spin wait for config from driver to be set
+    while (!(((blk_storage_info_t *)blk_config_driver)->ready)) asm("");
+
     // Initialise driver queue handle
     blk_queue_init(&drv_h, (blk_req_queue_t *)blk_req_queue_driver, (blk_resp_queue_t *)blk_resp_queue_driver, true, BLK_REQ_QUEUE_SIZE, BLK_RESP_QUEUE_SIZE);
 
@@ -87,18 +90,16 @@ void init(void) {
 #if BLK_NUM_CLIENTS > 1
     cli2ch[1] = CLIENT_CH_2;
 #endif
-
-    // @ericc: Hack, spin wait for config from driver to be set
-    // while (!(((blk_storage_info_t *)blk_config_driver)->ready)) asm("");
     
     // @ericc: determine config values from partitioner, for now hard code here
     // ((blk_storage_info_t *)blk_config)->blocksize = ((blk_storage_info_t *)blk_config_driver)->blocksize;
-    // ((blk_storage_info_t *)blk_config)->size = ((blk_storage_info_t *)blk_config_driver)->size;
+    ((blk_storage_info_t *)blk_config)->blocksize = 512;
+    ((blk_storage_info_t *)blk_config)->size = ((blk_storage_info_t *)blk_config_driver)->size;
     ((blk_storage_info_t *)blk_config)->ready = true;
 #if BLK_NUM_CLIENTS > 1
     // Need to initialise these based on partitioner, right now both clients write into the same disk space
-    // ((blk_storage_info_t *)blk_config2)->blocksize = ((blk_storage_info_t *)blk_config_driver)->blocksize;
-    // ((blk_storage_info_t *)blk_config2)->size = ((blk_storage_info_t *)blk_config_driver)->size;
+    ((blk_storage_info_t *)blk_config)->blocksize = 512;
+    ((blk_storage_info_t *)blk_config)->size = ((blk_storage_info_t *)blk_config_driver)->size;
     ((blk_storage_info_t *)blk_config2)->ready = true;
 #endif
 }
