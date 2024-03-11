@@ -98,8 +98,8 @@ void init(void) {
     ((blk_storage_info_t *)blk_config)->ready = true;
 #if BLK_NUM_CLIENTS > 1
     // Need to initialise these based on partitioner, right now both clients write into the same disk space
-    ((blk_storage_info_t *)blk_config)->blocksize = 512;
-    ((blk_storage_info_t *)blk_config)->size = ((blk_storage_info_t *)blk_config_driver)->size;
+    ((blk_storage_info_t *)blk_config2)->blocksize = 512;
+    ((blk_storage_info_t *)blk_config2)->size = ((blk_storage_info_t *)blk_config_driver)->size;
     ((blk_storage_info_t *)blk_config2)->ready = true;
 #endif
 }
