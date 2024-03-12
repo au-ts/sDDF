@@ -23,11 +23,6 @@
 
 #define DATASTORE_SIZE (BLK_NUM_CLIENTS * BLK_REQ_QUEUE_SIZE)
 
-uint32_t cli2ch[MAX_BLK_NUM_CLIENTS];
-
-blk_queue_handle_t drv_h;
-blk_queue_handle_t hs[MAX_BLK_NUM_CLIENTS];
-
 uintptr_t blk_config_driver;
 uintptr_t blk_req_queue_driver;
 uintptr_t blk_resp_queue_driver;
@@ -41,6 +36,17 @@ uintptr_t blk_resp_queue;
 uintptr_t blk_resp_queue2;
 uintptr_t blk_data;
 uintptr_t blk_data2;
+
+/* Client struct */
+typedef struct client {
+    blk_queue_handle_t queue_h;
+    uint32_t ch;
+    uint32_t start_sector;
+    uint32_t sectors;
+} client_t;
+client_t clients[MAX_BLK_NUM_CLIENTS];
+
+blk_queue_handle_t drv_h;
 
 /* Fixed size memory allocator */
 static fsmem_t fsmem_data;
@@ -61,6 +67,7 @@ static ds_data_t ds_data[DATASTORE_SIZE];
 static uint64_t ds_nextfree[DATASTORE_SIZE];
 static bool ds_used[DATASTORE_SIZE];
 
+/* Master boot record */
 struct mbr mbr;
 
 bool initialised = false;
@@ -71,10 +78,16 @@ static void partitions_init() {
         return;
     }
 
+    //@ericc: Figure out a better way to assign partitions to clients
+    int client_idx = 0;
+    int num_parts = 0;
     for (int i = 0; i < MBR_PARTITIONS; i++) {
         if (mbr.partitions[i].type == MBR_PARTITION_TYPE_EMPTY) {
-            break;
+            continue;
+        } else {
+            num_parts++;
         }
+
         printf("Partition %d: status %d chs %d %d %d type %d lba_start %d sectors %d \n", 
                                                     i,
                                                     mbr.partitions[i].status, 
@@ -84,17 +97,20 @@ static void partitions_init() {
                                                     mbr.partitions[i].type,
                                                     mbr.partitions[i].lba_start,
                                                     mbr.partitions[i].sectors);
+        
+        if (client_idx < BLK_NUM_CLIENTS) {
+            clients[client_idx].start_sector = mbr.partitions[i].lba_start;
+            clients[client_idx].sectors = mbr.partitions[i].sectors;
+            client_idx++;
+        }
     }
 
-    // @ericc: determine config values from partitioner, for now hard code here
-    // ((blk_storage_info_t *)blk_config)->blocksize = ((blk_storage_info_t *)blk_config_driver)->blocksize;
     ((blk_storage_info_t *)blk_config)->blocksize = 512;
-    ((blk_storage_info_t *)blk_config)->size = ((blk_storage_info_t *)blk_config_driver)->size;
+    ((blk_storage_info_t *)blk_config)->size = clients[0].sectors;
     ((blk_storage_info_t *)blk_config)->ready = true;
 #if BLK_NUM_CLIENTS > 1
-    // Need to initialise these based on partitioner, right now both clients write into the same disk space
     ((blk_storage_info_t *)blk_config2)->blocksize = 512;
-    ((blk_storage_info_t *)blk_config2)->size = ((blk_storage_info_t *)blk_config_driver)->size;
+    ((blk_storage_info_t *)blk_config2)->size = clients[0].sectors;
     ((blk_storage_info_t *)blk_config2)->ready = true;
 #endif
 }
@@ -146,9 +162,9 @@ void init(void) {
     blk_queue_init(&drv_h, (blk_req_queue_t *)blk_req_queue_driver, (blk_resp_queue_t *)blk_resp_queue_driver, true, BLK_REQ_QUEUE_SIZE, BLK_RESP_QUEUE_SIZE);
 
     // Initialise client queue handles
-    blk_queue_init(&hs[0], (blk_req_queue_t *)blk_req_queue, (blk_resp_queue_t *)blk_resp_queue, false, BLK_REQ_QUEUE_SIZE, BLK_RESP_QUEUE_SIZE);
+    blk_queue_init(&(clients[0].queue_h), (blk_req_queue_t *)blk_req_queue, (blk_resp_queue_t *)blk_resp_queue, false, BLK_REQ_QUEUE_SIZE, BLK_RESP_QUEUE_SIZE);
 #if BLK_NUM_CLIENTS > 1
-    blk_queue_init(&hs[1], (blk_req_queue_t *)blk_req_queue2, (blk_resp_queue_t *)blk_resp_queue2, false, BLK_REQ_QUEUE_SIZE, BLK_RESP_QUEUE_SIZE);
+    blk_queue_init(&(clients[1].queue_h), (blk_req_queue_t *)blk_req_queue2, (blk_resp_queue_t *)blk_resp_queue2, false, BLK_REQ_QUEUE_SIZE, BLK_RESP_QUEUE_SIZE);
 #endif
 
     // Initialise fixed size memory allocator and datastore
@@ -156,9 +172,9 @@ void init(void) {
     fsmem_init(&fsmem_data, blk_data_driver, BUFFER_SIZE, DRV_MAX_DATA_BUFFERS, &fsmem_avail_bitarr, fsmem_avail_bitarr_words, roundup_bits2words64(DRV_MAX_DATA_BUFFERS));
 
     // Initialise client channels
-    cli2ch[0] = CLIENT_CH_1;
+    clients[0].ch = CLIENT_CH_1;
 #if BLK_NUM_CLIENTS > 1
-    cli2ch[1] = CLIENT_CH_2;
+    clients[1].ch = CLIENT_CH_2;
 #endif
 
     request_mbr();
@@ -192,7 +208,7 @@ static void handle_driver() {
         }
 
         // Get the corresponding client queue handle
-        blk_queue_handle_t h = hs[cli_data.cli_id];
+        blk_queue_handle_t h = clients[cli_data.cli_id].queue_h;
 
         //@ericc: drop response if client resp queue is full
         if (blk_resp_queue_full(&h)) {
@@ -222,12 +238,12 @@ static void handle_driver() {
         }
         
         // Notify corresponding client
-        microkit_notify(cli2ch[cli_data.cli_id]);
+        microkit_notify(clients[cli_data.cli_id].ch);
     }
 }
 
 static void handle_client(int cli_id) {
-    blk_queue_handle_t h = hs[cli_id];
+    blk_queue_handle_t h = clients[cli_id].queue_h;
 
     blk_request_code_t cli_code;
     uintptr_t cli_addr;
@@ -241,8 +257,7 @@ static void handle_client(int cli_id) {
     while (!blk_req_queue_empty(&h)) {
         blk_dequeue_req(&h, &cli_code, &cli_addr, &cli_block_number, &cli_count, &cli_req_id);
 
-        // TODO: this number will change, to be partitioned by virtualiser
-        drv_block_number = cli_block_number;
+        drv_block_number = cli_block_number + clients[cli_id].start_sector;
 
         switch(cli_code) {
             case READ_BLOCKS:
