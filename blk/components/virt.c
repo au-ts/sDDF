@@ -4,6 +4,8 @@
 #include <sddf/blk/fsmem.h>
 #include <sddf/blk/datastore.h>
 #include <sddf/blk/shared_queue.h>
+#include <sddf/blk/mbr.h>
+#include <sddf/blk/util.h>
 #include <printf.h>
 
 /* TODO: Currently only works for 1 and 2 clients, need to handle multiple clients */
@@ -59,13 +61,81 @@ static ds_data_t ds_data[DATASTORE_SIZE];
 static uint64_t ds_nextfree[DATASTORE_SIZE];
 static bool ds_used[DATASTORE_SIZE];
 
-// @ericc: When we have libc implementation replace this
-static void *memcpy(void *restrict dest, const void *restrict src, size_t n)
-{
-    unsigned char *d = dest;
-    const unsigned char *s = src;
-    for (; n; n--) *d++ = *s++;
-    return dest;
+struct mbr mbr;
+
+bool initialised = false;
+
+static void partitions_init() {
+    if (mbr.signature != MBR_SIGNATURE) {
+        printf("MBR signature not found\n");
+        return;
+    }
+
+    for (int i = 0; i < MBR_PARTITIONS; i++) {
+        if (mbr.partitions[i].type == MBR_PARTITION_TYPE_EMPTY) {
+            break;
+        }
+        printf("Partition %d: status %d chs %d %d %d type %d lba_start %d sectors %d \n", 
+                                                    i,
+                                                    mbr.partitions[i].status, 
+                                                    mbr.partitions[i].chs_start[0],
+                                                    mbr.partitions[i].chs_start[1],
+                                                    mbr.partitions[i].chs_start[2],
+                                                    mbr.partitions[i].type,
+                                                    mbr.partitions[i].lba_start,
+                                                    mbr.partitions[i].sectors);
+    }
+
+    // @ericc: determine config values from partitioner, for now hard code here
+    // ((blk_storage_info_t *)blk_config)->blocksize = ((blk_storage_info_t *)blk_config_driver)->blocksize;
+    ((blk_storage_info_t *)blk_config)->blocksize = 512;
+    ((blk_storage_info_t *)blk_config)->size = ((blk_storage_info_t *)blk_config_driver)->size;
+    ((blk_storage_info_t *)blk_config)->ready = true;
+#if BLK_NUM_CLIENTS > 1
+    // Need to initialise these based on partitioner, right now both clients write into the same disk space
+    ((blk_storage_info_t *)blk_config2)->blocksize = 512;
+    ((blk_storage_info_t *)blk_config2)->size = ((blk_storage_info_t *)blk_config_driver)->size;
+    ((blk_storage_info_t *)blk_config2)->ready = true;
+#endif
+}
+
+static void request_mbr() {
+    uintptr_t mbr_addr;
+    fsmem_alloc(&fsmem_data, &mbr_addr, 1);
+    
+    uint64_t mbr_req_id;
+    ds_data_t mbr_req_data = {0, 0, 0, mbr_addr, 1, 0};
+    datastore_alloc(&ds, &mbr_req_data, &mbr_req_id);
+    
+    blk_enqueue_req(&drv_h, READ_BLOCKS, mbr_addr, 0, 1, mbr_req_id);
+
+    microkit_notify(DRIVER_CH);
+}
+
+static bool handle_mbr_reply() {
+    if (blk_resp_queue_empty(&drv_h)) {
+        return false;
+    }
+
+    blk_response_status_t drv_status;
+    uintptr_t drv_addr;
+    uint16_t drv_count;
+    uint16_t drv_success_count;
+    uint32_t drv_resp_id;
+    blk_dequeue_resp(&drv_h, &drv_status, &drv_addr, &drv_count, &drv_success_count, &drv_resp_id);
+
+    ds_data_t mbr_req_data;
+    datastore_retrieve(&ds, drv_resp_id, &mbr_req_data);
+
+    if (drv_status != SUCCESS) {
+        return false;
+    }
+    
+    seL4_ARM_VSpace_Invalidate_Data(3, mbr_req_data.drv_addr, mbr_req_data.drv_addr + (BUFFER_SIZE * mbr_req_data.count));
+    memcpy(&mbr, (void *)mbr_req_data.drv_addr, sizeof(struct mbr));
+    fsmem_free(&fsmem_data, mbr_req_data.drv_addr, mbr_req_data.count);
+
+    return true;
 }
 
 void init(void) {
@@ -90,18 +160,8 @@ void init(void) {
 #if BLK_NUM_CLIENTS > 1
     cli2ch[1] = CLIENT_CH_2;
 #endif
-    
-    // @ericc: determine config values from partitioner, for now hard code here
-    // ((blk_storage_info_t *)blk_config)->blocksize = ((blk_storage_info_t *)blk_config_driver)->blocksize;
-    ((blk_storage_info_t *)blk_config)->blocksize = 512;
-    ((blk_storage_info_t *)blk_config)->size = ((blk_storage_info_t *)blk_config_driver)->size;
-    ((blk_storage_info_t *)blk_config)->ready = true;
-#if BLK_NUM_CLIENTS > 1
-    // Need to initialise these based on partitioner, right now both clients write into the same disk space
-    ((blk_storage_info_t *)blk_config2)->blocksize = 512;
-    ((blk_storage_info_t *)blk_config2)->size = ((blk_storage_info_t *)blk_config_driver)->size;
-    ((blk_storage_info_t *)blk_config2)->ready = true;
-#endif
+
+    request_mbr();
 }
 
 static void handle_driver() {
@@ -224,6 +284,15 @@ static void handle_client(int cli_id) {
 }
 
 void notified(microkit_channel ch) {
+    if (initialised == false) {
+        bool success = handle_mbr_reply();
+        if (success) {
+            partitions_init();
+            initialised = true;
+        };
+        return;
+    }
+
     if (ch == DRIVER_CH) {
         handle_driver();
     } else {
