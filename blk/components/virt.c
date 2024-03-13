@@ -105,12 +105,17 @@ static void partitions_init() {
         }
     }
 
+    if (num_parts < BLK_NUM_CLIENTS) {
+        printf("More clients than partitions\n");
+        return;
+    }
+
     ((blk_storage_info_t *)blk_config)->blocksize = 512;
     ((blk_storage_info_t *)blk_config)->size = clients[0].sectors;
     ((blk_storage_info_t *)blk_config)->ready = true;
 #if BLK_NUM_CLIENTS > 1
     ((blk_storage_info_t *)blk_config2)->blocksize = 512;
-    ((blk_storage_info_t *)blk_config2)->size = clients[0].sectors;
+    ((blk_storage_info_t *)blk_config2)->size = clients[1].sectors;
     ((blk_storage_info_t *)blk_config2)->ready = true;
 #endif
 }
