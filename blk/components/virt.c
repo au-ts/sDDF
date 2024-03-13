@@ -6,7 +6,7 @@
 #include <sddf/blk/shared_queue.h>
 #include <sddf/blk/mbr.h>
 #include <sddf/blk/util.h>
-#include <printf.h>
+// #include <printf.h>
 
 /* TODO: Currently only works for 1 and 2 clients, need to handle multiple clients */
 
@@ -74,7 +74,7 @@ bool initialised = false;
 
 static void partitions_init() {
     if (mbr.signature != MBR_SIGNATURE) {
-        printf("MBR signature not found\n");
+        // printf("MBR signature not found\n");
         return;
     }
 
@@ -88,15 +88,15 @@ static void partitions_init() {
             num_parts++;
         }
 
-        printf("Partition %d: status %d chs %d %d %d type %d lba_start %d sectors %d \n", 
-                                                    i,
-                                                    mbr.partitions[i].status, 
-                                                    mbr.partitions[i].chs_start[0],
-                                                    mbr.partitions[i].chs_start[1],
-                                                    mbr.partitions[i].chs_start[2],
-                                                    mbr.partitions[i].type,
-                                                    mbr.partitions[i].lba_start,
-                                                    mbr.partitions[i].sectors);
+        // printf("Partition %d: status %d chs %d %d %d type %d lba_start %d sectors %d \n", 
+        //                                             i,
+        //                                             mbr.partitions[i].status, 
+        //                                             mbr.partitions[i].chs_start[0],
+        //                                             mbr.partitions[i].chs_start[1],
+        //                                             mbr.partitions[i].chs_start[2],
+        //                                             mbr.partitions[i].type,
+        //                                             mbr.partitions[i].lba_start,
+        //                                             mbr.partitions[i].sectors);
         
         if (client_idx < BLK_NUM_CLIENTS) {
             clients[client_idx].start_sector = mbr.partitions[i].lba_start;
@@ -106,7 +106,7 @@ static void partitions_init() {
     }
 
     if (num_parts < BLK_NUM_CLIENTS) {
-        printf("More clients than partitions\n");
+        // printf("More clients than partitions\n");
         return;
     }
 
