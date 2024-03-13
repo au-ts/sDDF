@@ -120,7 +120,9 @@ int notified_by_driver(void) {
             continue;
         }
 
-        if (cmd.code == SDDF_SND_CMD_PCM_RELEASE) {
+        if (cmd.code == SDDF_SND_CMD_PCM_RELEASE ||
+            (cmd.code == SDDF_SND_CMD_PCM_TAKE && cmd.status != SDDF_SND_S_OK))
+        {
             owners[cmd.stream_id] = -1;
         }
 
