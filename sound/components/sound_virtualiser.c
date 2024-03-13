@@ -5,8 +5,7 @@
 
 #define DRIVER_CH 3
 #define CLIENT_CH_BEGIN 1
-#define CLIENT_COUNT 1
-// #define CLIENT_COUNT 2
+#define CLIENT_COUNT 2
 
 #define NO_OWNER -1
 #define MAX_STREAMS 16
@@ -176,10 +175,10 @@ void init(void) {
     clients[0].pcm_req = (void *)c0_pcm_req;
     clients[0].pcm_res = (void *)c0_pcm_res;
 
-    // clients[1].cmd_req = (void *)c1_cmd_req;
-    // clients[1].cmd_res = (void *)c1_cmd_res;
-    // clients[1].pcm_req = (void *)c1_pcm_req;
-    // clients[1].pcm_res = (void *)c1_pcm_res;
+    clients[1].cmd_req = (void *)c1_cmd_req;
+    clients[1].cmd_res = (void *)c1_cmd_res;
+    clients[1].pcm_req = (void *)c1_pcm_req;
+    clients[1].pcm_res = (void *)c1_pcm_res;
 
     driver_rings.cmd_req = (void *)drv_cmd_req;
     driver_rings.cmd_res = (void *)drv_cmd_res;
