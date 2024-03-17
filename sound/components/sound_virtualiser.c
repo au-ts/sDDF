@@ -33,20 +33,42 @@ static sddf_snd_rings_t driver_rings;
 static int owners[MAX_STREAMS];
 static bool started;
 
-int notified_by_client(int client) {
+static void respond_to_cmd(sddf_snd_rings_t *client_rings,
+                           sddf_snd_cmd_t *cmd,
+                           sddf_snd_status_code_t status) {
+    cmd->status = status;
+    if (sddf_snd_enqueue_cmd(client_rings->cmd_res, cmd) != 0) {
+        microkit_dbg_puts("SND VIRT|ERR: failed to respond to command\n");
+    }
+}
+
+static void respond_to_pcm(sddf_snd_rings_t *client_rings,
+                           sddf_snd_pcm_data_t *pcm,
+                           sddf_snd_status_code_t status) {
+    pcm->status = status;
+    pcm->latency_bytes = 0;
+    if (sddf_snd_enqueue_pcm_data(client_rings->pcm_res, pcm) != 0) {
+        microkit_dbg_puts("SND VIRT|ERR: failed to respond to pcm\n");
+    }
+}
+
+static int notified_by_client(int client) {
 
     if (client < 0 || client > CLIENT_COUNT) {
         microkit_dbg_puts("SND VIRT|ERR: invalid client id\n");
         return -1;
     }
 
+    bool notify_client = false;
+    bool notify_driver = false;
     sddf_snd_rings_t *client_rings = &clients[client];
-
     sddf_snd_cmd_t cmd;
+
     while (sddf_snd_dequeue_cmd(client_rings->cmd_req, &cmd) == 0) {
 
         if (cmd.stream_id > MAX_STREAMS) {
             microkit_dbg_puts("SND VIRT|ERR: stream id too large\n");
+            respond_to_cmd(client_rings, &cmd, SDDF_SND_S_BAD_MSG);
             continue;
         }
 
@@ -54,24 +76,26 @@ int notified_by_client(int client) {
             if (cmd.code == SDDF_SND_CMD_PCM_TAKE) {
                 owners[cmd.stream_id] = client;
             } else {
-                // TODO: send error response: must take first
                 microkit_dbg_puts("SND VIRT|ERR: client must take first\n");
+                respond_to_cmd(client_rings, &cmd, SDDF_SND_S_BAD_MSG);
+                notify_client = true;
                 continue;
             }
         }
 
         int owner = owners[cmd.stream_id];
         if (owner != client) {
-            // TODO: send error response: not owned by client
             microkit_dbg_puts("SND VIRT|ERR: stream busy\n");
+            respond_to_cmd(client_rings, &cmd, SDDF_SND_S_BUSY);
+            notify_client = true;
             continue;
         }
 
         if (sddf_snd_enqueue_cmd(driver_rings.cmd_req, &cmd) != 0) {
             microkit_dbg_puts("SND VIRT|ERR: Failed to enqueue command\n");
-            // TODO: send error response
             return -1;
         }
+        notify_driver = true;
     }
 
     sddf_snd_pcm_data_t pcm;
@@ -79,13 +103,16 @@ int notified_by_client(int client) {
 
         if (pcm.stream_id > MAX_STREAMS) {
             microkit_dbg_puts("SND VIRT|ERR: stream id too large\n");
+            respond_to_pcm(client_rings, &pcm, SDDF_SND_S_BAD_MSG);
+            notify_client = true;
             continue;
         }
 
         int owner = owners[pcm.stream_id];
         if (owner != client) {
-            // TODO: send error response: not owned by client
             microkit_dbg_puts("SND VIRT|ERR: driver replied to busy stream\n");
+            respond_to_pcm(client_rings, &pcm, SDDF_SND_S_BAD_MSG);
+            notify_client = true;
             continue;
         }
 
@@ -93,10 +120,15 @@ int notified_by_client(int client) {
             microkit_dbg_puts("SND VIRT|ERR: Failed to enqueue PCM data\n");
             return -1;
         }
+        notify_driver = true;
     }
 
-    // TODO: only notify if we have enqueued to driver
-    microkit_notify(DRIVER_CH);
+    if (notify_client) {
+        microkit_notify(CLIENT_CH_BEGIN + client);
+    }
+    if (notify_driver) {
+        microkit_notify(DRIVER_CH);
+    }
 
     return 0;
 }
