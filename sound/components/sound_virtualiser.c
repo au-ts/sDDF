@@ -1,7 +1,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <microkit.h>
-#include <sddf/sound/sound_queue.h>
+#include <sddf/sound/queue.h>
 
 #define DRIVER_CH 3
 #define CLIENT_CH_BEGIN 1
