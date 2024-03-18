@@ -6,7 +6,6 @@
 #include <sddf/blk/shared_queue.h>
 #include <sddf/blk/mbr.h>
 #include <sddf/blk/util.h>
-// #include <printf.h>
 
 /* TODO: Currently only works for 1 and 2 clients, need to handle multiple clients */
 
@@ -74,7 +73,6 @@ bool initialised = false;
 
 static void partitions_init() {
     if (mbr.signature != MBR_SIGNATURE) {
-        // printf("MBR signature not found\n");
         return;
     }
 
@@ -87,16 +85,6 @@ static void partitions_init() {
         } else {
             num_parts++;
         }
-
-        // printf("Partition %d: status %d chs %d %d %d type %d lba_start %d sectors %d \n", 
-        //                                             i,
-        //                                             mbr.partitions[i].status, 
-        //                                             mbr.partitions[i].chs_start[0],
-        //                                             mbr.partitions[i].chs_start[1],
-        //                                             mbr.partitions[i].chs_start[2],
-        //                                             mbr.partitions[i].type,
-        //                                             mbr.partitions[i].lba_start,
-        //                                             mbr.partitions[i].sectors);
         
         if (client_idx < BLK_NUM_CLIENTS) {
             clients[client_idx].start_sector = mbr.partitions[i].lba_start;
@@ -106,7 +94,6 @@ static void partitions_init() {
     }
 
     if (num_parts < BLK_NUM_CLIENTS) {
-        // printf("More clients than partitions\n");
         return;
     }
 
@@ -211,7 +198,7 @@ static void handle_driver() {
         // Get the corresponding client queue handle
         blk_queue_handle_t h = clients[cli_data.cli_id].queue_h;
 
-        //@ericc: drop response if client resp queue is full
+        // Drop response if client resp queue is full
         if (blk_resp_queue_full(&h)) {
             continue;
         }
@@ -263,7 +250,6 @@ static void handle_client(int cli_id) {
         switch(cli_code) {
             case READ_BLOCKS:
                 if (blk_req_queue_full(&drv_h) || datastore_full(&ds) || fsmem_full(&fsmem_data, cli_count)) {
-                    // @ericc: drop request
                     continue;
                 }
                 // Allocate driver data buffers
@@ -271,7 +257,6 @@ static void handle_client(int cli_id) {
                 break;
             case WRITE_BLOCKS:
                 if (blk_req_queue_full(&drv_h) || datastore_full(&ds) || fsmem_full(&fsmem_data, cli_count)) {
-                    // @ericc: drop request
                     continue;
                 }
                 // Allocate driver data buffers
@@ -284,7 +269,6 @@ static void handle_client(int cli_id) {
             case FLUSH:
             case BARRIER:
                 if (blk_req_queue_full(&drv_h) || datastore_full(&ds)) {
-                    // @ericc: drop request
                     continue;
                 }
                 drv_addr = cli_addr;
