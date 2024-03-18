@@ -243,6 +243,17 @@ static void handle_client(int cli_id) {
     uint64_t drv_req_id;
     while (!blk_req_queue_empty(&h)) {
         blk_dequeue_req(&h, &cli_code, &cli_addr, &cli_block_number, &cli_count, &cli_req_id);
+        
+        switch(cli_code) {
+            case READ_BLOCKS:
+            case WRITE_BLOCKS:
+                // Check if client request is within its allocated bounds
+                if (cli_block_number + cli_count > clients[cli_id].sectors) {
+                    blk_enqueue_resp(&h, SEEK_ERROR, 0, cli_req_id);
+                    continue;
+                }
+            break;
+        }
 
         drv_block_number = cli_block_number + clients[cli_id].start_sector;
 
