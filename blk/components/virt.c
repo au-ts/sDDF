@@ -15,10 +15,9 @@
 #define CLIENT_CH_1 3
 #define CLIENT_CH_2 4
 
-// @ericc: For now size of each buffer is set to 512, to be changed to 4096 later.
-#define BUFFER_SIZE 512
-// @ericc: = memory region size / BUFFER_SIZE
-#define DRV_MAX_DATA_BUFFERS 4096
+#define BUFFER_SIZE 4096
+#define MEM_REGION_SIZE 0x200000 //@ericc: autogen this from microkit xml system file
+#define DRV_MAX_DATA_BUFFERS (MEM_REGION_SIZE / BUFFER_SIZE)
 
 #define DATASTORE_SIZE (BLK_NUM_CLIENTS * BLK_REQ_QUEUE_SIZE)
 
@@ -97,11 +96,11 @@ static void partitions_init() {
         return;
     }
 
-    ((blk_storage_info_t *)blk_config)->blocksize = 512;
+    ((blk_storage_info_t *)blk_config)->blocksize = blk_config_driver->blocksize;
     ((blk_storage_info_t *)blk_config)->size = clients[0].sectors;
     ((blk_storage_info_t *)blk_config)->ready = true;
 #if BLK_NUM_CLIENTS > 1
-    ((blk_storage_info_t *)blk_config2)->blocksize = 512;
+    ((blk_storage_info_t *)blk_config2)->blocksize = blk_config_driver->blocksize;
     ((blk_storage_info_t *)blk_config2)->size = clients[1].sectors;
     ((blk_storage_info_t *)blk_config2)->ready = true;
 #endif
