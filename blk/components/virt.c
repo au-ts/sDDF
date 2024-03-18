@@ -139,11 +139,9 @@ static bool handle_mbr_reply() {
     }
 
     blk_response_status_t drv_status;
-    uintptr_t drv_addr;
-    uint16_t drv_count;
     uint16_t drv_success_count;
     uint32_t drv_resp_id;
-    blk_dequeue_resp(&drv_h, &drv_status, &drv_addr, &drv_count, &drv_success_count, &drv_resp_id);
+    blk_dequeue_resp(&drv_h, &drv_status, &drv_success_count, &drv_resp_id);
 
     ds_data_t mbr_req_data;
     datastore_retrieve(&ds, drv_resp_id, &mbr_req_data);
@@ -164,12 +162,12 @@ void init(void) {
     while (!(((blk_storage_info_t *)blk_config_driver)->ready)) asm("");
 
     // Initialise driver queue handle
-    blk_queue_init(&drv_h, (blk_req_queue_t *)blk_req_queue_driver, (blk_resp_queue_t *)blk_resp_queue_driver, true, BLK_REQ_QUEUE_SIZE, BLK_RESP_QUEUE_SIZE);
+    blk_queue_init(&drv_h, (blk_req_queue_t *)blk_req_queue_driver, (blk_resp_queue_t *)blk_resp_queue_driver);
 
     // Initialise client queue handles
-    blk_queue_init(&(clients[0].queue_h), (blk_req_queue_t *)blk_req_queue, (blk_resp_queue_t *)blk_resp_queue, false, BLK_REQ_QUEUE_SIZE, BLK_RESP_QUEUE_SIZE);
+    blk_queue_init(&(clients[0].queue_h), (blk_req_queue_t *)blk_req_queue, (blk_resp_queue_t *)blk_resp_queue);
 #if BLK_NUM_CLIENTS > 1
-    blk_queue_init(&(clients[1].queue_h), (blk_req_queue_t *)blk_req_queue2, (blk_resp_queue_t *)blk_resp_queue2, false, BLK_REQ_QUEUE_SIZE, BLK_RESP_QUEUE_SIZE);
+    blk_queue_init(&(clients[1].queue_h), (blk_req_queue_t *)blk_req_queue2, (blk_resp_queue_t *)blk_resp_queue2);
 #endif
 
     // Initialise fixed size memory allocator and datastore
@@ -187,13 +185,11 @@ void init(void) {
 
 static void handle_driver() {
     blk_response_status_t drv_status;
-    uintptr_t drv_addr;
-    uint16_t drv_count;
     uint16_t drv_success_count;
     uint32_t drv_resp_id;
 
     while (!blk_resp_queue_empty(&drv_h)) {
-        blk_dequeue_resp(&drv_h, &drv_status, &drv_addr, &drv_count, &drv_success_count, &drv_resp_id);
+        blk_dequeue_resp(&drv_h, &drv_status, &drv_success_count, &drv_resp_id);
         
         ds_data_t cli_data;
         datastore_retrieve(&ds, drv_resp_id, &cli_data);
@@ -227,19 +223,19 @@ static void handle_driver() {
                     seL4_ARM_VSpace_Invalidate_Data(3, cli_data.drv_addr, cli_data.drv_addr + (BUFFER_SIZE * cli_data.count));
                     // Copy data buffers from driver to client
                     memcpy((void *)cli_data.cli_addr, (void *)cli_data.drv_addr, BUFFER_SIZE * cli_data.count);
-                    blk_enqueue_resp(&h, SUCCESS, cli_data.cli_addr, cli_data.count, drv_success_count, cli_data.cli_req_id);
+                    blk_enqueue_resp(&h, SUCCESS, drv_success_count, cli_data.cli_req_id);
                     break;
                 case WRITE_BLOCKS:
-                    blk_enqueue_resp(&h, SUCCESS, cli_data.cli_addr, cli_data.count, drv_success_count, cli_data.cli_req_id);
+                    blk_enqueue_resp(&h, SUCCESS, drv_success_count, cli_data.cli_req_id);
                     break;
                 case FLUSH:
                 case BARRIER:
-                    blk_enqueue_resp(&h, SUCCESS, cli_data.cli_addr, cli_data.count, drv_success_count, cli_data.cli_req_id);
+                    blk_enqueue_resp(&h, SUCCESS, drv_success_count, cli_data.cli_req_id);
                     break;
             }
         } else {
             // When more error conditions are added, this will need to be updated to a switch statement
-            blk_enqueue_resp(&h, SEEK_ERROR, cli_data.cli_addr, cli_data.count, drv_success_count, cli_data.cli_req_id);
+            blk_enqueue_resp(&h, SEEK_ERROR, drv_success_count, cli_data.cli_req_id);
         }
         
         // Notify corresponding client
