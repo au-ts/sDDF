@@ -70,19 +70,6 @@ struct mbr mbr;
 
 bool initialised = false;
 
-static void config_init() {
-    ((blk_storage_info_t *)blk_config)->blocksize = blk_config_driver->blocksize;
-    ((blk_storage_info_t *)blk_config)->size = clients[0].sectors;
-    ((blk_storage_info_t *)blk_config)->read_only = blk_config_driver->read_only;
-    ((blk_storage_info_t *)blk_config)->ready = true;
-#if BLK_NUM_CLIENTS > 1
-    ((blk_storage_info_t *)blk_config2)->blocksize = blk_config_driver->blocksize;
-    ((blk_storage_info_t *)blk_config2)->size = clients[1].sectors;
-    ((blk_storage_info_t *)blk_config)->read_only = blk_config_driver->read_only;
-    ((blk_storage_info_t *)blk_config2)->ready = true;
-#endif
-}
-
 static void partitions_init() {
     if (mbr.signature != MBR_SIGNATURE) {
         return;
@@ -108,6 +95,17 @@ static void partitions_init() {
     if (num_parts < BLK_NUM_CLIENTS) {
         return;
     }
+
+    ((blk_storage_info_t *)blk_config)->blocksize = blk_config_driver->blocksize;
+    ((blk_storage_info_t *)blk_config)->size = clients[0].sectors;
+    ((blk_storage_info_t *)blk_config)->read_only = blk_config_driver->read_only;
+    ((blk_storage_info_t *)blk_config)->ready = true;
+#if BLK_NUM_CLIENTS > 1
+    ((blk_storage_info_t *)blk_config2)->blocksize = blk_config_driver->blocksize;
+    ((blk_storage_info_t *)blk_config2)->size = clients[1].sectors;
+    ((blk_storage_info_t *)blk_config2)->read_only = blk_config_driver->read_only;
+    ((blk_storage_info_t *)blk_config2)->ready = true;
+#endif
 }
 
 static void request_mbr() {
@@ -302,7 +300,6 @@ void notified(microkit_channel ch) {
         bool success = handle_mbr_reply();
         if (success) {
             partitions_init();
-            config_init();
             initialised = true;
         };
         return;
