@@ -23,7 +23,7 @@
 typedef struct blk_storage_info {
     char serial_number[BLK_MAX_SERIAL_NUMBER + 1]; 
     bool read_only;
-    bool ready;
+    bool ready; /* true if component closer to driver is ready */
     uint16_t blocksize; /* optimal block size, as a multiple of BLK_BLOCK_SIZE */
     uint16_t queue_depth;
     uint16_t cylinders, heads, blocks; /* geometry to guide FS layout */
