@@ -11,6 +11,8 @@
 #include <stdbool.h>
 #include <sddf/util/fence.h>
 
+/* Size of a single block to be transferred */
+#define BLK_BLOCK_SIZE 4096
 /* Maximum number of slots in the request queue. Can be configured. */
 #define BLK_REQ_QUEUE_SIZE 1024
 /* Maximum number of slots in the response queue. Can be configured. */
@@ -22,10 +24,10 @@ typedef struct blk_storage_info {
     char serial_number[BLK_MAX_SERIAL_NUMBER + 1]; 
     bool read_only;
     bool ready;
-    uint16_t blocksize;
+    uint16_t blocksize; /* optimal block size, as a multiple of BLK_BLOCK_SIZE */
     uint16_t queue_depth;
     uint16_t cylinders, heads, blocks; /* geometry to guide FS layout */
-    uint64_t size; /* number of blocksize units */
+    uint64_t size; /* number of BLK_BLOCK_SIZE units */
 } blk_storage_info_t;
 
 /* Request code for block */
