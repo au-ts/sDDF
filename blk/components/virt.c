@@ -96,14 +96,14 @@ static void partitions_init() {
         return;
     }
 
-    ((blk_storage_info_t *)blk_config)->blocksize = blk_config_driver->blocksize;
+    ((blk_storage_info_t *)blk_config)->blocksize = ((blk_storage_info_t *)blk_config_driver)->blocksize;
     ((blk_storage_info_t *)blk_config)->size = clients[0].sectors;
-    ((blk_storage_info_t *)blk_config)->read_only = blk_config_driver->read_only;
+    ((blk_storage_info_t *)blk_config)->read_only = ((blk_storage_info_t *)blk_config_driver)->read_only;
     ((blk_storage_info_t *)blk_config)->ready = true;
 #if BLK_NUM_CLIENTS > 1
-    ((blk_storage_info_t *)blk_config2)->blocksize = blk_config_driver->blocksize;
+    ((blk_storage_info_t *)blk_config2)->blocksize = ((blk_storage_info_t *)blk_config_driver)->blocksize;
     ((blk_storage_info_t *)blk_config2)->size = clients[1].sectors;
-    ((blk_storage_info_t *)blk_config2)->read_only = blk_config_driver->read_only;
+    ((blk_storage_info_t *)blk_config2)->read_only = ((blk_storage_info_t *)blk_config_driver)->read_only;
     ((blk_storage_info_t *)blk_config2)->ready = true;
 #endif
 }
@@ -245,16 +245,13 @@ static void handle_client(int cli_id) {
     uint64_t drv_req_id;
     while (!blk_req_queue_empty(&h)) {
         blk_dequeue_req(&h, &cli_code, &cli_addr, &cli_block_number, &cli_count, &cli_req_id);
-        
-        switch(cli_code) {
-            case READ_BLOCKS:
-            case WRITE_BLOCKS:
-                // Check if client request is within its allocated bounds
-                if (cli_block_number + cli_count > clients[cli_id].sectors) {
-                    blk_enqueue_resp(&h, SEEK_ERROR, 0, cli_req_id);
-                    continue;
-                }
-            break;
+
+        if (cli_code == READ_BLOCKS || cli_code == WRITE_BLOCKS) {
+            // Check if client request is within its allocated bounds
+            if (cli_block_number + cli_count > clients[cli_id].sectors) {
+                blk_enqueue_resp(&h, SEEK_ERROR, 0, cli_req_id);
+                continue;
+            }
         }
 
         drv_block_number = cli_block_number + clients[cli_id].start_sector;
