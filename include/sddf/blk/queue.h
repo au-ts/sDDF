@@ -86,9 +86,13 @@ typedef struct blk_queue_handle {
  * @param request pointer to request queue in shared memory.
  * @param response pointer to response queue in shared memory.
  */
-void blk_queue_init(blk_queue_handle_t *h,
-                        blk_req_queue_t *request,
-                        blk_resp_queue_t *response);
+static inline void blk_queue_init(blk_queue_handle_t *h,
+                                blk_req_queue_t *request,
+                                blk_resp_queue_t *response)
+{
+    h->req_queue = request;
+    h->resp_queue = response;
+}
 
 /**
  * Check if the request queue is empty.

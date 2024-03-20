@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include <sddf/blk/fsmem.h>
 #include <sddf/blk/datastore.h>
-#include <sddf/blk/shared_queue.h>
+#include <sddf/blk/queue.h>
 #include <sddf/blk/mbr.h>
 #include <sddf/blk/util.h>
 
