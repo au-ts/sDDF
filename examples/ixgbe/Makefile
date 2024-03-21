@@ -21,19 +21,17 @@ endif
 
 TOOLCHAIN := x86_64-linux-gnu
 
-MARCH := nehalem
-
 CC := $(TOOLCHAIN)-gcc
 LD := $(TOOLCHAIN)-ld
 AS := $(TOOLCHAIN)-as
 MICROKIT_TOOL ?= $(MICROKIT_SDK)/bin/microkit
 
-HELLO_OBJS := hello.o
+HELLO_OBJS := hello.o printf.o
 
 BOARD_DIR := $(MICROKIT_SDK)/board/$(MICROKIT_BOARD)/$(MICROKIT_CONFIG)
 
 IMAGES := hello.elf
-CFLAGS := -march=$(MARCH) -nostdlib -ffreestanding -g -O3 -Wall  -Wno-unused-function -I$(BOARD_DIR)/include
+CFLAGS := -nostdlib -ffreestanding -g -O3 -Wall  -Wno-unused-function -I$(BOARD_DIR)/include
 LDFLAGS := -L$(BOARD_DIR)/lib
 LIBS := -lmicrokit -Tmicrokit.ld
 
@@ -46,7 +44,7 @@ $(BUILD_DIR)/%.o: %.c Makefile
 	$(CC) -c $(CFLAGS) $< -o $@
 
 $(BUILD_DIR)/%.o: %.s Makefile
-	$(AS) -g -march=$(MARCH) $< -o $@
+	$(AS) -g $< -o $@
 
 $(BUILD_DIR)/hello.elf: $(addprefix $(BUILD_DIR)/, $(HELLO_OBJS))
 	$(LD) $(LDFLAGS) $^ $(LIBS) -o $@
