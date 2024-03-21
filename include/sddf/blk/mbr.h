@@ -2,6 +2,7 @@
 
 #define MBR_SIGNATURE 0xAA55
 #define MBR_PRIMARY_PARTITIONS 4
+#define MBR_SECTOR_SIZE 512
 
 struct mbr_partition {
     uint8_t status;

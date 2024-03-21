@@ -6,6 +6,7 @@
 #include <sddf/blk/queue.h>
 #include <sddf/blk/mbr.h>
 #include <sddf/blk/util.h>
+#include <util/printf.h>
 
 /* TODO: Currently only works for 1 and 2 clients, need to handle multiple clients */
 
@@ -15,9 +16,8 @@
 #define CLIENT_CH_1 3
 #define CLIENT_CH_2 4
 
-#define BUFFER_SIZE 4096
 #define MEM_REGION_SIZE 0x200000 //@ericc: autogen this from microkit xml system file
-#define DRV_MAX_DATA_BUFFERS (MEM_REGION_SIZE / BUFFER_SIZE)
+#define DRV_MAX_DATA_BUFFERS (MEM_REGION_SIZE / BLK_BLOCK_SIZE)
 
 #define DATASTORE_SIZE (BLK_NUM_CLIENTS * BLK_REQ_QUEUE_SIZE)
 
@@ -97,12 +97,12 @@ static void partitions_init() {
     }
 
     ((blk_storage_info_t *)blk_config)->blocksize = ((blk_storage_info_t *)blk_config_driver)->blocksize;
-    ((blk_storage_info_t *)blk_config)->size = clients[0].sectors;
+    ((blk_storage_info_t *)blk_config)->size = clients[0].sectors / (BLK_BLOCK_SIZE / MBR_SECTOR_SIZE);
     ((blk_storage_info_t *)blk_config)->read_only = ((blk_storage_info_t *)blk_config_driver)->read_only;
     ((blk_storage_info_t *)blk_config)->ready = true;
 #if BLK_NUM_CLIENTS > 1
     ((blk_storage_info_t *)blk_config2)->blocksize = ((blk_storage_info_t *)blk_config_driver)->blocksize;
-    ((blk_storage_info_t *)blk_config2)->size = clients[1].sectors;
+    ((blk_storage_info_t *)blk_config2)->size = clients[1].sectors / (BLK_BLOCK_SIZE / MBR_SECTOR_SIZE);
     ((blk_storage_info_t *)blk_config2)->read_only = ((blk_storage_info_t *)blk_config_driver)->read_only;
     ((blk_storage_info_t *)blk_config2)->ready = true;
 #endif
@@ -138,7 +138,7 @@ static bool handle_mbr_reply() {
         return false;
     }
     
-    seL4_ARM_VSpace_Invalidate_Data(3, mbr_req_data.drv_addr, mbr_req_data.drv_addr + (BUFFER_SIZE * mbr_req_data.count));
+    seL4_ARM_VSpace_Invalidate_Data(3, mbr_req_data.drv_addr, mbr_req_data.drv_addr + (BLK_BLOCK_SIZE * mbr_req_data.count));
     memcpy(&mbr, (void *)mbr_req_data.drv_addr, sizeof(struct mbr));
     fsmem_free(&fsmem_data, mbr_req_data.drv_addr, mbr_req_data.count);
 
@@ -160,7 +160,7 @@ void init(void) {
 
     // Initialise fixed size memory allocator and datastore
     datastore_init(&ds, ds_data, sizeof(ds_data_t), ds_nextfree, ds_used, DATASTORE_SIZE);
-    fsmem_init(&fsmem_data, blk_data_driver, BUFFER_SIZE, DRV_MAX_DATA_BUFFERS, &fsmem_avail_bitarr, fsmem_avail_bitarr_words, roundup_bits2words64(DRV_MAX_DATA_BUFFERS));
+    fsmem_init(&fsmem_data, blk_data_driver, BLK_BLOCK_SIZE, DRV_MAX_DATA_BUFFERS, &fsmem_avail_bitarr, fsmem_avail_bitarr_words, roundup_bits2words64(DRV_MAX_DATA_BUFFERS));
 
     // Initialise client channels
     clients[0].ch = CLIENT_CH_1;
@@ -208,9 +208,9 @@ static void handle_driver() {
             switch(cli_data.code) {
                 case READ_BLOCKS:
                     // Invalidate cache
-                    seL4_ARM_VSpace_Invalidate_Data(3, cli_data.drv_addr, cli_data.drv_addr + (BUFFER_SIZE * cli_data.count));
+                    seL4_ARM_VSpace_Invalidate_Data(3, cli_data.drv_addr, cli_data.drv_addr + (BLK_BLOCK_SIZE * cli_data.count));
                     // Copy data buffers from driver to client
-                    memcpy((void *)cli_data.cli_addr, (void *)cli_data.drv_addr, BUFFER_SIZE * cli_data.count);
+                    memcpy((void *)cli_data.cli_addr, (void *)cli_data.drv_addr, BLK_BLOCK_SIZE * cli_data.count);
                     blk_enqueue_resp(&h, SUCCESS, drv_success_count, cli_data.cli_req_id);
                     break;
                 case WRITE_BLOCKS:
@@ -225,6 +225,18 @@ static void handle_driver() {
             // When more error conditions are added, this will need to be updated to a switch statement
             blk_enqueue_resp(&h, SEEK_ERROR, drv_success_count, cli_data.cli_req_id);
         }
+        
+        // @ericc: Print out first 512bytes of data for debugging
+        // if (cli_data.cli_req_id == 0) {
+        //     printf("drv_addr: 0x%lx\n", cli_data.drv_addr);
+        //     char* addr = (char*)cli_data.drv_addr;
+
+        //     for (int i = 0; i < 512; i++) {
+        //         printf("%02x ", addr[i]);
+        //     }
+
+        //     printf("\n");
+        // }
         
         // Notify corresponding client
         microkit_notify(clients[cli_data.cli_id].ch);
@@ -254,7 +266,7 @@ static void handle_client(int cli_id) {
             }
         }
 
-        drv_block_number = cli_block_number + clients[cli_id].start_sector;
+        drv_block_number = cli_block_number + (clients[cli_id].start_sector / (BLK_BLOCK_SIZE / MBR_SECTOR_SIZE));
 
         switch(cli_code) {
             case READ_BLOCKS:
@@ -271,9 +283,9 @@ static void handle_client(int cli_id) {
                 // Allocate driver data buffers
                 fsmem_alloc(&fsmem_data, &drv_addr, cli_count);
                 // Copy data buffers from client to driver
-                memcpy((void *)drv_addr, (void *)cli_addr, BUFFER_SIZE * cli_count);
+                memcpy((void *)drv_addr, (void *)cli_addr, BLK_BLOCK_SIZE * cli_count);
                 // Flush the cache
-                seL4_ARM_VSpace_Clean_Data(3, drv_addr, drv_addr + (BUFFER_SIZE * cli_count));
+                seL4_ARM_VSpace_Clean_Data(3, drv_addr, drv_addr + (BLK_BLOCK_SIZE * cli_count));
                 break;
             case FLUSH:
             case BARRIER:
