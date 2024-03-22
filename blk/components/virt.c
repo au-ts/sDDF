@@ -6,7 +6,7 @@
 #include <sddf/blk/queue.h>
 #include <sddf/blk/mbr.h>
 #include <sddf/blk/util.h>
-#include <util/printf.h>
+#include <sddf/util/printf.h>
 
 /* TODO: Currently only works for 1 and 2 clients, need to handle multiple clients */
 
@@ -228,14 +228,14 @@ static void handle_driver() {
         
         // @ericc: Print out first 512bytes of data for debugging
         // if (cli_data.cli_req_id == 0) {
-        //     printf("drv_addr: 0x%lx\n", cli_data.drv_addr);
+        //     sddf_printf("drv_addr: 0x%lx\n", cli_data.drv_addr);
         //     char* addr = (char*)cli_data.drv_addr;
 
         //     for (int i = 0; i < 512; i++) {
-        //         printf("%02x ", addr[i]);
+        //         sddf_printf("%02x ", addr[i]);
         //     }
 
-        //     printf("\n");
+        //     sddf_printf("\n");
         // }
         
         // Notify corresponding client
