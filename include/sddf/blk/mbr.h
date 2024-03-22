@@ -1,7 +1,7 @@
 #include <stdint.h>
 
 #define MBR_SIGNATURE 0xAA55
-#define MBR_PRIMARY_PARTITIONS 4
+#define MBR_MAX_PRIMARY_PARTITIONS 4
 #define MBR_SECTOR_SIZE 512
 
 struct mbr_partition {
@@ -15,7 +15,7 @@ struct mbr_partition {
 
 struct mbr {
     uint8_t bootstrap[446];
-    struct mbr_partition partitions[MBR_PRIMARY_PARTITIONS];
+    struct mbr_partition partitions[MBR_MAX_PRIMARY_PARTITIONS];
     uint16_t signature;
 } __attribute__((packed));
 

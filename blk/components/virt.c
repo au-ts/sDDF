@@ -87,7 +87,7 @@ static void partitions_init() {
     //@ericc: Figure out a better way to assign partitions to clients
     int client_idx = 0;
     int num_parts = 0;
-    for (int i = 0; i < MBR_PRIMARY_PARTITIONS; i++) {
+    for (int i = 0; i < MBR_MAX_PRIMARY_PARTITIONS; i++) {
         if (mbr.partitions[i].type == MBR_PARTITION_TYPE_EMPTY) {
             continue;
         } else {
