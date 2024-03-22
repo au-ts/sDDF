@@ -64,6 +64,7 @@ typedef struct blk_response {
 typedef struct blk_req_queue {
     uint32_t head;
     uint32_t tail;
+    uint32_t size;
     bool plugged; /* prevent requests from being dequeued when plugged */
     blk_request_t buffers[BLK_REQ_QUEUE_SIZE];
 } blk_req_queue_t;
@@ -72,6 +73,7 @@ typedef struct blk_req_queue {
 typedef struct blk_resp_queue {
     uint32_t head;
     uint32_t tail;
+    uint32_t size;
     blk_response_t buffers[BLK_RESP_QUEUE_SIZE];
 } blk_resp_queue_t;
 
@@ -87,13 +89,19 @@ typedef struct blk_queue_handle {
  * @param h queue handle to use.
  * @param request pointer to request queue in shared memory.
  * @param response pointer to response queue in shared memory.
+ * @param req_size number of entries of request queue.
+ * @param resp_size number of entries of response queue.
  */
 static inline void blk_queue_init(blk_queue_handle_t *h,
                                 blk_req_queue_t *request,
-                                blk_resp_queue_t *response)
+                                blk_resp_queue_t *response,
+                                uint32_t req_size,
+                                uint32_t resp_size)
 {
     h->req_queue = request;
     h->resp_queue = response;
+    h->req_queue->size = req_size;
+    h->resp_queue->size = resp_size;
 }
 
 /**
@@ -105,7 +113,7 @@ static inline void blk_queue_init(blk_queue_handle_t *h,
  */
 static inline bool blk_req_queue_empty(blk_queue_handle_t *h)
 {
-    return !((h->req_queue->head - h->req_queue->tail) % BLK_REQ_QUEUE_SIZE);
+    return !((h->req_queue->head - h->req_queue->tail) % h->req_queue->size);
 }
 
 /**
@@ -117,7 +125,7 @@ static inline bool blk_req_queue_empty(blk_queue_handle_t *h)
  */
 static inline bool blk_resp_queue_empty(blk_queue_handle_t *h)
 {
-    return !((h->resp_queue->head - h->resp_queue->tail) % BLK_RESP_QUEUE_SIZE);
+    return !((h->resp_queue->head - h->resp_queue->tail) % h->resp_queue->size);
 }
 
 /**
@@ -129,7 +137,7 @@ static inline bool blk_resp_queue_empty(blk_queue_handle_t *h)
  */
 static inline bool blk_req_queue_full(blk_queue_handle_t *h)
 {
-    return !((h->req_queue->head - h->req_queue->tail + 1) % BLK_REQ_QUEUE_SIZE);
+    return !((h->req_queue->head - h->req_queue->tail + 1) % h->req_queue->size);
 }
 
 /**
@@ -141,7 +149,7 @@ static inline bool blk_req_queue_full(blk_queue_handle_t *h)
  */
 static inline bool blk_resp_queue_full(blk_queue_handle_t *h)
 {
-    return !((h->resp_queue->head - h->resp_queue->tail + 1) % BLK_RESP_QUEUE_SIZE);
+    return !((h->resp_queue->head - h->resp_queue->tail + 1) % h->resp_queue->size);
 }
 
 /**
@@ -191,11 +199,11 @@ static inline int blk_enqueue_req(blk_queue_handle_t *h,
         return -1;
     }
 
-    h->req_queue->buffers[h->req_queue->head % BLK_REQ_QUEUE_SIZE].code = code;
-    h->req_queue->buffers[h->req_queue->head % BLK_REQ_QUEUE_SIZE].addr = addr;
-    h->req_queue->buffers[h->req_queue->head % BLK_REQ_QUEUE_SIZE].block_number = block_number;
-    h->req_queue->buffers[h->req_queue->head % BLK_REQ_QUEUE_SIZE].count = count;
-    h->req_queue->buffers[h->req_queue->head % BLK_REQ_QUEUE_SIZE].id = id;
+    h->req_queue->buffers[h->req_queue->head % h->req_queue->size].code = code;
+    h->req_queue->buffers[h->req_queue->head % h->req_queue->size].addr = addr;
+    h->req_queue->buffers[h->req_queue->head % h->req_queue->size].block_number = block_number;
+    h->req_queue->buffers[h->req_queue->head % h->req_queue->size].count = count;
+    h->req_queue->buffers[h->req_queue->head % h->req_queue->size].id = id;
 
     THREAD_MEMORY_RELEASE();
     h->req_queue->head++;
@@ -225,9 +233,9 @@ static inline int blk_enqueue_resp(blk_queue_handle_t *h,
         return -1;
     }
 
-    h->resp_queue->buffers[h->resp_queue->head % BLK_RESP_QUEUE_SIZE].status = status;
-    h->resp_queue->buffers[h->resp_queue->head % BLK_RESP_QUEUE_SIZE].success_count = success_count;
-    h->resp_queue->buffers[h->resp_queue->head % BLK_RESP_QUEUE_SIZE].id = id;
+    h->resp_queue->buffers[h->resp_queue->head % h->resp_queue->size].status = status;
+    h->resp_queue->buffers[h->resp_queue->head % h->resp_queue->size].success_count = success_count;
+    h->resp_queue->buffers[h->resp_queue->head % h->resp_queue->size].id = id;
 
     THREAD_MEMORY_RELEASE();
     h->resp_queue->head++;
@@ -258,11 +266,11 @@ static inline int blk_dequeue_req(blk_queue_handle_t *h,
         return -1;
     }
 
-    *code = h->req_queue->buffers[h->req_queue->tail % BLK_REQ_QUEUE_SIZE].code;
-    *addr = h->req_queue->buffers[h->req_queue->tail % BLK_REQ_QUEUE_SIZE].addr;
-    *block_number = h->req_queue->buffers[h->req_queue->tail % BLK_REQ_QUEUE_SIZE].block_number;
-    *count = h->req_queue->buffers[h->req_queue->tail % BLK_REQ_QUEUE_SIZE].count;
-    *id = h->req_queue->buffers[h->req_queue->tail % BLK_REQ_QUEUE_SIZE].id;
+    *code = h->req_queue->buffers[h->req_queue->tail % h->req_queue->size].code;
+    *addr = h->req_queue->buffers[h->req_queue->tail % h->req_queue->size].addr;
+    *block_number = h->req_queue->buffers[h->req_queue->tail % h->req_queue->size].block_number;
+    *count = h->req_queue->buffers[h->req_queue->tail % h->req_queue->size].count;
+    *id = h->req_queue->buffers[h->req_queue->tail % h->req_queue->size].id;
 
     THREAD_MEMORY_RELEASE();
     h->req_queue->tail++;
@@ -290,9 +298,9 @@ static inline int blk_dequeue_resp(blk_queue_handle_t *h,
         return -1;
     }
 
-    *status = h->resp_queue->buffers[h->resp_queue->tail % BLK_RESP_QUEUE_SIZE].status;
-    *success_count = h->resp_queue->buffers[h->resp_queue->tail % BLK_RESP_QUEUE_SIZE].success_count;
-    *id = h->resp_queue->buffers[h->resp_queue->tail % BLK_RESP_QUEUE_SIZE].id;
+    *status = h->resp_queue->buffers[h->resp_queue->tail % h->resp_queue->size].status;
+    *success_count = h->resp_queue->buffers[h->resp_queue->tail % h->resp_queue->size].success_count;
+    *id = h->resp_queue->buffers[h->resp_queue->tail % h->resp_queue->size].id;
 
     THREAD_MEMORY_RELEASE();
     h->resp_queue->tail++;

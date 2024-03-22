@@ -162,12 +162,12 @@ void init(void) {
     while (!(((blk_storage_info_t *)blk_config_driver)->ready)) asm("");
 
     // Initialise driver queue handle
-    blk_queue_init(&drv_h, (blk_req_queue_t *)blk_req_queue_driver, (blk_resp_queue_t *)blk_resp_queue_driver);
+    blk_queue_init(&drv_h, (blk_req_queue_t *)blk_req_queue_driver, (blk_resp_queue_t *)blk_resp_queue_driver, BLK_REQ_QUEUE_SIZE, BLK_RESP_QUEUE_SIZE);
 
     // Initialise client queue handles
-    blk_queue_init(&(clients[0].queue_h), (blk_req_queue_t *)blk_req_queue, (blk_resp_queue_t *)blk_resp_queue);
+    blk_queue_init(&(clients[0].queue_h), (blk_req_queue_t *)blk_req_queue, (blk_resp_queue_t *)blk_resp_queue, BLK_REQ_QUEUE_SIZE, BLK_RESP_QUEUE_SIZE);
 #if BLK_NUM_CLIENTS > 1
-    blk_queue_init(&(clients[1].queue_h), (blk_req_queue_t *)blk_req_queue2, (blk_resp_queue_t *)blk_resp_queue2);
+    blk_queue_init(&(clients[1].queue_h), (blk_req_queue_t *)blk_req_queue2, (blk_resp_queue_t *)blk_resp_queue2, BLK_REQ_QUEUE_SIZE, BLK_RESP_QUEUE_SIZE);
 #endif
 
     // Initialise fixed size memory allocator and datastore
