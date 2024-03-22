@@ -8,6 +8,14 @@
 #include <sddf/blk/util.h>
 #include <sddf/util/printf.h>
 
+#define DEBUG_BLK_VIRT
+
+#if defined(DEBUG_BLK_VIRT)
+#define LOG_BLK_VIRT(...) do{ sddf_dprintf("BLK_VIRT|INFO: "); sddf_dprintf(__VA_ARGS__); }while(0)
+#endif
+
+#define LOG_BLK_VIRT_ERR(...) do{ sddf_printf("BLK_VIRT|ERROR: "); sddf_printf(__VA_ARGS__); }while(0)
+
 /* TODO: Currently only works for 1 and 2 clients, need to handle multiple clients */
 
 #define MAX_BLK_NUM_CLIENTS 16
@@ -72,6 +80,7 @@ bool initialised = false;
 
 static void partitions_init() {
     if (mbr.signature != MBR_SIGNATURE) {
+        LOG_BLK_VIRT_ERR("Invalid MBR signature\n");
         return;
     }
 
@@ -93,6 +102,7 @@ static void partitions_init() {
     }
 
     if (num_parts < BLK_NUM_CLIENTS) {
+        LOG_BLK_VIRT_ERR("Not enough partitions to assign to clients\n");
         return;
     }
 
@@ -123,6 +133,7 @@ static void request_mbr() {
 
 static bool handle_mbr_reply() {
     if (blk_resp_queue_empty(&drv_h)) {
+        LOG_BLK_VIRT_ERR("Trying to request sector 0, no response from driver\n");
         return false;
     }
 
@@ -135,6 +146,7 @@ static bool handle_mbr_reply() {
     datastore_retrieve(&ds, drv_resp_id, &mbr_req_data);
 
     if (drv_status != SUCCESS) {
+        LOG_BLK_VIRT_ERR("Failed to read sector 0 from driver\n");
         return false;
     }
     
@@ -228,14 +240,14 @@ static void handle_driver() {
         
         // @ericc: Print out first 512bytes of data for debugging
         // if (cli_data.cli_req_id == 0) {
-        //     sddf_printf("drv_addr: 0x%lx\n", cli_data.drv_addr);
+        //     LOG_BLK_VIRT("drv_addr: 0x%lx\n", cli_data.drv_addr);
         //     char* addr = (char*)cli_data.drv_addr;
 
         //     for (int i = 0; i < 512; i++) {
-        //         sddf_printf("%02x ", addr[i]);
+        //         sddf_dprintf("%02x ", addr[i]);
         //     }
 
-        //     sddf_printf("\n");
+        //     sddf_dprintf("\n");
         // }
         
         // Notify corresponding client
