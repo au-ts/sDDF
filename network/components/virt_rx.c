@@ -60,7 +60,7 @@ void rx_return(void)
             assert(!err);
 
             buffer.phys_or_offset = buffer.phys_or_offset - buffer_data_paddr;
-            microkit_arm_vspace_data_invalidate(buffer.phys_or_offset + buffer_data_vaddr, buffer.phys_or_offset + buffer_data_vaddr + buffer.len);
+            microkit_arm_vspace_data_invalidate(buffer.phys_or_offset + buffer_data_vaddr, buffer.phys_or_offset + buffer_data_vaddr + ROUND_UP(buffer.len, 64));
 
             int client = get_client((struct ethernet_header *) (buffer.phys_or_offset + buffer_data_vaddr));
             if (client >= 0) {
