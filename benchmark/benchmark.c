@@ -113,7 +113,7 @@ static void print_benchmark_details(uint64_t pd_id, uint64_t kernel_util, uint64
         case PD_ARP_ID: sddf_printf("ARP"); break;
         case PD_TIMER_ID: sddf_printf("TIMER"); break;
     }
-    if (pd_id != PD_TOTAL) sddf_printf(" ( %llx)", pd_id);
+    if (pd_id != PD_TOTAL) sddf_printf(" (%llx)", pd_id);
     sddf_printf("\n{\nKernelUtilisation:  %llx\nKernelEntries:  %llx\nNumberSchedules:  %llx\nTotalUtilisation:  %llx\n}\n", 
             kernel_util, kernel_entries, number_schedules, total_util);
 }
