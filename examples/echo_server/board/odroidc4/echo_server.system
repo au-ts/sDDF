@@ -231,11 +231,6 @@
     </channel>
 
     <channel>
-        <end pd="virt_tx" id="4" />
-        <end pd="timer" id="4" />
-    </channel>
-
-    <channel>
         <end pd="client0" id="4" /> <!-- start channel -->
         <end pd="bench" id="1" />
     </channel>
