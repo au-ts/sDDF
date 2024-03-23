@@ -15,8 +15,7 @@
 #define ULONG_MAX 0xfffffffffffffffful
 
 uintptr_t cyclecounters_vaddr;
-
-struct bench *b = (void *)(uintptr_t)0x5010000;
+struct bench *b = (void *)cyclecounters_vaddr;
 
 void count_idle(void)
 {

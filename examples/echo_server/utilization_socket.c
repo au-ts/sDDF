@@ -82,7 +82,7 @@ static struct tcp_pcb *utiliz_socket;
     ","STR(y)","STR(z)
 
 
-struct bench *bench = (void *)(uintptr_t)0x5010000;
+struct bench *bench = (void *)cyclecounters_vaddr;
 
 uint64_t start;
 uint64_t idle_ccount_start;

@@ -18,6 +18,7 @@
 #define TX_CH  1
 #define RX_CH  2
 
+uintptr_t eth_regs;
 uintptr_t hw_ring_buffer_vaddr;
 uintptr_t hw_ring_buffer_paddr;
 
@@ -55,7 +56,7 @@ net_queue_handle_t tx_queue;
 
 #define MAX_PACKET_SIZE     1536
 
-volatile struct enet_regs *eth = (void *)(uintptr_t)0x2000000;
+volatile struct enet_regs *eth = (void *)eth_regs;
 uint32_t irq_mask = IRQ_MASK;
 
 static inline bool hw_ring_full(hw_ring_t *ring, size_t ring_size)

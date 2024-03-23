@@ -18,6 +18,7 @@
 #define TX_CH  1
 #define RX_CH  2
 
+uintptr_t eth_regs;
 uintptr_t hw_ring_buffer_vaddr;
 uintptr_t hw_ring_buffer_paddr;
 
@@ -52,8 +53,8 @@ hw_ring_t tx;
 net_queue_handle_t rx_queue;
 net_queue_handle_t tx_queue;
 
-volatile struct eth_mac_regs *eth_mac = (void *)(uintptr_t)0x2000000;
-volatile struct eth_dma_regs *eth_dma = (void *)(uintptr_t)0x2000000 + DMA_REG_OFFSET;
+volatile struct eth_mac_regs *eth_mac = (void *)eth_regs;
+volatile struct eth_dma_regs *eth_dma = (void *)(eth_regs + DMA_REG_OFFSET);
 
 static inline bool hw_ring_full(hw_ring_t *ring, size_t ring_size)
 {
