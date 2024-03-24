@@ -86,7 +86,6 @@ struct bench *bench;
 
 uint64_t start;
 uint64_t idle_ccount_start;
-uint64_t idle_overflow_start;
 
 char data_packet_str[MAX_PACKET_SIZE];
 
@@ -147,9 +146,8 @@ static err_t utilization_recv_callback(void *arg, struct tcp_pcb *pcb, struct pb
     } else if (msg_match(data_packet_str, START)) {
         sddf_printf("%s measurement starting... \n", microkit_name);
         if (!strcmp(microkit_name, "client0")) {
-            start = bench->ts;
-            idle_ccount_start = bench->ccount;
-            idle_overflow_start = bench->overflows;
+            start = __atomic_load_n(&bench->ts, __ATOMIC_RELAXED);
+            idle_ccount_start = __atomic_load_n(&bench->ccount, __ATOMIC_RELAXED);
             microkit_notify(START_PMU);
         }
     } else if (msg_match(data_packet_str, STOP)) {
@@ -158,9 +156,8 @@ static err_t utilization_recv_callback(void *arg, struct tcp_pcb *pcb, struct pb
         uint64_t total = 0, idle = 0;
 
         if (!strcmp(microkit_name, "client0")) {
-            total = bench->ts - start;
-            total += ULONG_MAX * (bench->overflows - idle_overflow_start);
-            idle = bench->ccount - idle_ccount_start;
+            total = __atomic_load_n(&bench->ts, __ATOMIC_RELAXED) - start;
+            idle = __atomic_load_n(&bench->ccount, __ATOMIC_RELAXED) - idle_ccount_start;
         }
 
         char tbuf[21];

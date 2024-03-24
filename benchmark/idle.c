@@ -12,7 +12,6 @@
 
 #define INIT 3
 #define MAGIC_CYCLES 150
-#define ULONG_MAX 0xfffffffffffffffful
 
 uintptr_t cyclecounters_vaddr;
 struct bench *b;
@@ -21,27 +20,13 @@ void count_idle(void)
 {
     b->prev = sel4bench_get_cycle_count();
     b->ccount = 0;
-    b->overflows = 0;
 
     while (1) {
-
-        b->ts = (uint64_t)sel4bench_get_cycle_count();
-        uint64_t diff;
-
-        /* Handle overflow: This thread needs to run at least 2 times
-           within any ULONG_MAX cycles period to detect overflows */
-        if (b->ts < b->prev) {
-            diff = ULONG_MAX - b->prev + b->ts + 1;
-            b->overflows++;
-        } else {
-            diff = b->ts - b->prev;
-        }
+        __atomic_store_n(&b->ts, (uint64_t)sel4bench_get_cycle_count(), __ATOMIC_RELAXED);
+        uint64_t diff = b->ts - b->prev;
 
         if (diff < MAGIC_CYCLES) {
-            COMPILER_MEMORY_FENCE();
-
-            b->ccount += diff;
-            COMPILER_MEMORY_FENCE();
+            __atomic_store_n(&b->ccount, __atomic_load_n(&b->ccount, __ATOMIC_RELAXED) + diff, __ATOMIC_RELAXED);
         }
 
         b->prev = b->ts;
@@ -52,7 +37,6 @@ void notified(microkit_channel ch)
 {
     switch(ch) {
         case INIT:
-            // init is complete so we can start counting.
             count_idle();
             break;
         default:
