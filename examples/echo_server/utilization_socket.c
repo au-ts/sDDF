@@ -82,7 +82,7 @@ static struct tcp_pcb *utiliz_socket;
     ","STR(y)","STR(z)
 
 
-struct bench *bench = (void *)cyclecounters_vaddr;
+struct bench *bench;
 
 uint64_t start;
 uint64_t idle_ccount_start;
@@ -209,6 +209,7 @@ static err_t utilization_accept_callback(void *arg, struct tcp_pcb *newpcb, err_
 
 int setup_utilization_socket(void)
 {
+    bench = (void *)cyclecounters_vaddr;
     utiliz_socket = tcp_new_ip_type(IPADDR_TYPE_V4);
     if (utiliz_socket == NULL) {
         sddf_dprintf("Failed to open a socket for listening!\n");

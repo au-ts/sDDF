@@ -91,7 +91,7 @@ static int arp_reply(const uint8_t ethsrc_addr[ETH_HWADDR_LEN],
                 const uint8_t hwsrc_addr[ETH_HWADDR_LEN], const uint32_t ipsrc_addr,
                 const uint8_t hwdst_addr[ETH_HWADDR_LEN], const uint32_t ipdst_addr)
 {
-    if (net_queue_empty(tx_queue.free)) {
+    if (net_queue_empty_free(&tx_queue)) {
         sddf_dprintf("ARP|LOG: Transmit free queue empty or transmit active queue full. Dropping reply\n");
         return -1;
     }
@@ -100,7 +100,7 @@ static int arp_reply(const uint8_t ethsrc_addr[ETH_HWADDR_LEN],
     int err = net_dequeue_free(&tx_queue, &buffer);
     assert(!err);
 
-    uintptr_t addr = tx_buffer_data_region + buffer.phys_or_offset;
+    uintptr_t addr = tx_buffer_data_region + buffer.io_or_offset;
 
     struct arp_packet *reply = (struct arp_packet *)addr;
     memcpy(&reply->ethdst_addr, ethdst_addr, ETH_HWADDR_LEN);
@@ -131,11 +131,11 @@ void receive(void)
     bool transmitted = false;
     bool reprocess = true;
     while (reprocess) {
-        while (!net_queue_empty(rx_queue.active)) {
+        while (!net_queue_empty_active(&rx_queue)) {
             net_buff_desc_t buffer;
             int err = net_dequeue_active(&rx_queue, &buffer);
             assert(!err);
-            uintptr_t addr = rx_buffer_data_region + buffer.phys_or_offset;
+            uintptr_t addr = rx_buffer_data_region + buffer.io_or_offset;
 
             /* Check if packet is an ARP request */
             struct ethernet_header *ethhdr = (struct ethernet_header *)addr;
@@ -158,17 +158,17 @@ void receive(void)
             assert(!err);
         }
 
-        net_request_signal(rx_queue.active);
+        net_request_signal_active(&rx_queue);
         reprocess = false;
 
-        if (!net_queue_empty(rx_queue.active)) {
-            net_cancel_signal(rx_queue.active);
+        if (!net_queue_empty_active(&rx_queue)) {
+            net_cancel_signal_active(&rx_queue);
             reprocess = true;
         }
     }
 
-    if (transmitted && net_require_signal(tx_queue.active)) {
-        net_cancel_signal(tx_queue.active);
+    if (transmitted && net_require_signal_active(&tx_queue)) {
+        net_cancel_signal_active(&tx_queue);
         microkit_notify_delayed(TX_CH);
     }
 }
@@ -211,7 +211,7 @@ void init(void)
 {
     net_queue_init(&rx_queue, (net_queue_t *)rx_free, (net_queue_t *)rx_active, RX_QUEUE_SIZE_ARP);
     net_queue_init(&tx_queue, (net_queue_t *)tx_free, (net_queue_t *)tx_active, TX_QUEUE_SIZE_ARP);
-    net_buffers_init((net_queue_t *)tx_free, 0, TX_QUEUE_SIZE_ARP);
+    net_buffers_init(&tx_queue, 0);
 
     arp_mac_addr_init_sys(microkit_name, (uint8_t *) mac_addrs);
 }

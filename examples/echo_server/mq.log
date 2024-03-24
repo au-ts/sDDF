@@ -1,0 +1,320 @@
+co
+^Eco
+[Enter `^Ec?' for help]
+[connecting...up]
+SM1:BL:511f6b:81ca2f;FEAT:A0F83180:20282000;POC:F;RCY:0;EMMC:0;READ:0;0.0;CHK:0;
+bl2_stage_init 0x01
+bl2_stage_init 0x81
+hw id: 0x0000 - pwm id 0x01
+bl2_stage_init 0xc1
+bl2_stage_init 0x02
+
+L0:00000000
+L1:00000703
+L2:00008067
+L3:15000020
+S1:00000000
+B2:20282000
+B1:a0f83180
+
+TE: 132043
+
+BL2 Built : 20:29:41, Jun 18 2019. g12a ga659aac - luan.yuan@droid15-sz
+
+Board ID = 1
+Set cpu clk to 24M
+Set clk81 to 24M
+Use GP1_pll as DSU clk.
+DSU clk: 1200 Mhz
+CPU clk: 1200 MHz
+Set clk81 to 166.6M
+eMMC boot @ 0
+sw8 s
+DDR driver_vesion: LPDDR4_PHY_V_0_1_15 build time: Jun 18 2019 20:29:37
+board id: 1
+Load FIP HDR from eMMC, src: 0x00010200, des: 0xfffd0000, size: 0x00004000, part: 0
+fw parse done
+Load ddrfw from eMMC, src: 0x00060200, des: 0xfffd0000, size: 0x0000c000, part: 0
+Load ddrfw from eMMC, src: 0x00038200, des: 0xfffd0000, size: 0x00004000, part: 0
+PIEI prepare done
+fastboot data load
+00000000
+emmc switch 1 ok
+00000000
+emmc switch 2 ok
+fastboot data verify
+verify result: 255
+Cfg max: 2, cur: 1. Board id: 255. Force loop cfg
+DDR4 probe
+ddr clk to 1320MHz
+Load ddrfw from eMMC, src: 0x00014200, des: 0xfffd0000, size: 0x0000c000, part: 0
+00000000
+emmc switch 0 ok
+
+dmc_version 0001
+Check phy result
+INFO : End of initialization
+INFO : End of read enable training
+INFO : End of fine write leveling
+INFO : End of read dq deskew training
+INFO : End of MPR read delay center optimization
+INFO : End of Write leveling coarse delay
+INFO : End of write delay center optimization
+INFO : End of read delay center optimization
+INFO : End of max read latency training
+INFO : Training has run successfully!
+1D training succeed
+Load ddrfw from eMMC, src: 0x00020200, des: 0xfffd0000, size: 0x0000c000, part: 0
+Check phy result
+INFO : End of initialization
+INFO : End of 2D read delay Voltage center optimization
+INFO : End of 2D write delay Voltage center optimization
+INFO : Training has run successfully!
+
+R0_RxClkDly_Margin==106 ps 9
+R0_TxDqDly_Margi==118 ps 10
+
+
+R1_RxClkDly_Margin==0 ps 0
+R1_TxDqDly_Margi==0 ps 0
+
+ dwc_ddrphy_apb_wr((0<<20)|(2<<16)|(0<<12)|(0xb0):0001 
+
+soc_vref_reg_value 0x 0000004f 0000004f 0000004f 0000004c 0000004f 00000051 0000004e 0000004d 0000004e 00000050 0000004e 0000004d 0000004e 0000004e 0000004d 0000004d 00000050 00000050 0000004f 00000050 0000004f 0000004e 0000004e 00000051 0000004f 00000051 0000004f 0000004f 0000004f 0000004f 00000050 00000051 dram_vref_reg_value 0x 00000021
+2D training succeed
+aml_ddr_fw_vesion: LPDDR4_PHY_V_0_1_15 build time: Jun 18 2019 20:29:43
+auto size-- 65535DDR cs0 size: 2048MB
+DDR cs1 size: 2048MB
+DMC_DDR_CTRL: 00700024DDR size: 3928MB
+cs0 DataBus test pass
+cs1 DataBus test pass
+cs0 AddrBus test pass
+cs1 AddrBus test pass
+
+non-sec scramble use zero key
+ddr scramble enabled
+
+100bdlr_step_size ps== 440
+result report
+boot times 0Enable ddr reg access
+00000000
+emmc switch 3 ok
+Authentication key not yet programmed
+get rpmb counter error 0x00000007
+00000000
+emmc switch 0 ok
+Load FIP HDR from eMMC, src: 0x00010200, des: 0x01700000, size: 0x00004000, part: 0
+Load BL3X from eMMC, src: 0x00078200, des: 0x01768000, size: 0x0009c000, part: 0
+bl2z: ptr: 05129330, size: 00001e40
+0.0;M3 CHK:0;cm4_sp_mode 0
+MVN_1=0x00000000
+MVN_2=0x00000000
+[Image: g12a_v1.1.3386-3b31431 2019-05-21 10:41:54 luan.yuan@droid15-sz]
+OPS=0x10
+ring efuse init
+2b 0c 10 00 01 1d 22 00 00 19 36 30 36 58 4b 50 
+[0.017319 Inits done]
+secure task start!
+high task start!
+low task start!
+run into bl31
+NOTICE:  BL31: v1.3(release):4fc40b1
+NOTICE:  BL31: Built : 15:57:33, May 22 2019
+NOTICE:  BL31: G12A normal boot!
+NOTICE:  BL31: BL33 decompress pass
+ERROR:   Error initializing runtime service opteed_fast
+
+<debug_uart>
+
+
+U-Boot 2022.07-armbian (Feb 17 2023 - 22:32:33 +0000) odroid-c4/hc4
+
+Model: Hardkernel ODROID-C4
+SoC:   Amlogic Meson SM1 (S905X3) Revision 2b:c (10:2)
+DRAM:  3.8 GiB
+Core:  388 devices, 27 uclasses, devicetree: separate
+MMC:   sd@ffe05000: 0, mmc@ffe07000: 1
+Loading Environment from nowhere... OK
+In:    serial
+Out:   serial
+Err:   serial
+Board variant: c4
+Net:   eth0: ethernet@ff3f0000
+Hit any key to stop autoboot:  2  
+ 0 
+=> 
+=> setenv autoload no && dhcp && tftpboot 0x20000000 odroidc4-2/local-kernel
+setenv autoload no && dhcp && tftpboot 0x20000000 odroidc4-2/local-kernel
+ethernet@ff3f0000 Waiting for PHY auto negotiation to complete...... done
+Speed: 1000, full duplex
+BOOTP broadcast 1
+BOOTP broadcast 2
+BOOTP broadcast 3
+BOOTP broadcast 4
+BOOTP broadcast 5
+BOOTP broadcast 6
+*** WARNING: Host Name is too long (34 - max: 32) - truncated
+*** WARNING: Host Name is too long (34 - max: 32) - truncated
+DHCP client bound to address 172.16.0.12 (5763 ms)
+Speed: 1000, full duplex
+Using ethernet@ff3f0000 device
+TFTP from server 172.16.0.2; our IP address is 172.16.0.12
+Filename 'odroidc4-2/local-kernel'.
+Load address: 0x20000000
+Loading: *#################################################################
+	 #################################################################
+	 #################################################################
+	 #################################################################
+	 #################################################
+	 11.3 MiB/s
+done
+Bytes transferred = 4532688 (4529d0 hex)
+=> go 0x20000000
+go 0x20000000
+## Starting application at 0x20000000 ...
+LDR|INFO: altloader for seL4 starting
+LDR|INFO: Flags:                0x0000000000000001
+             seL4 configured as hypervisor
+LDR|INFO: Kernel:      entry:   0x0000008030000000
+LDR|INFO: Root server: physmem: 0x0000000030452000 -- 0x000000003045a000
+LDR|INFO:              virtmem: 0x000000008a000000 -- 0x000000008a008000
+LDR|INFO:              entry  : 0x000000008a000000
+LDR|INFO: region: 0x00000000   addr: 0x0000000030000000   size: 0x0000000000230000   offset: 0x0000000000000000   type: 0x0000000000000001
+LDR|INFO: region: 0x00000001   addr: 0x0000000030452000   size: 0x00000000000074e0   offset: 0x0000000000230000   type: 0x0000000000000001
+LDR|INFO: region: 0x00000002   addr: 0x0000000030230000   size: 0x00000000000108b0   offset: 0x00000000002374e0   type: 0x0000000000000001
+LDR|INFO: region: 0x00000003   addr: 0x0000000030241000   size: 0x0000000000002028   offset: 0x0000000000247d90   type: 0x0000000000000001
+LDR|INFO: region: 0x00000004   addr: 0x0000000030244000   size: 0x0000000000001080   offset: 0x0000000000249dc0   type: 0x0000000000000001
+LDR|INFO: region: 0x00000005   addr: 0x0000000030246000   size: 0x00000000000028d8   offset: 0x000000000024ae40   type: 0x0000000000000001
+LDR|INFO: region: 0x00000006   addr: 0x0000000030249000   size: 0x0000000000001130   offset: 0x000000000024d720   type: 0x0000000000000001
+LDR|INFO: region: 0x00000007   addr: 0x000000003024b000   size: 0x0000000000002588   offset: 0x000000000024e850   type: 0x0000000000000001
+LDR|INFO: region: 0x00000008   addr: 0x000000003024e000   size: 0x0000000000003110   offset: 0x0000000000250de0   type: 0x0000000000000001
+LDR|INFO: region: 0x00000009   addr: 0x0000000030252000   size: 0x00000000000027c8   offset: 0x0000000000253ef0   type: 0x0000000000000001
+LDR|INFO: region: 0x0000000a   addr: 0x0000000030255000   size: 0x0000000000001140   offset: 0x00000000002566c0   type: 0x0000000000000001
+LDR|INFO: region: 0x0000000b   addr: 0x0000000030257000   size: 0x0000000000002478   offset: 0x0000000000257800   type: 0x0000000000000001
+LDR|INFO: region: 0x0000000c   addr: 0x000000003025a000   size: 0x00000000000010d0   offset: 0x0000000000259c80   type: 0x0000000000000001
+LDR|INFO: region: 0x0000000d   addr: 0x000000003025c000   size: 0x0000000000002478   offset: 0x000000000025ad50   type: 0x0000000000000001
+LDR|INFO: region: 0x0000000e   addr: 0x000000003025f000   size: 0x00000000000010d0   offset: 0x000000000025d1d0   type: 0x0000000000000001
+LDR|INFO: region: 0x0000000f   addr: 0x0000000030261000   size: 0x0000000000002648   offset: 0x000000000025e2a0   type: 0x0000000000000001
+LDR|INFO: region: 0x00000010   addr: 0x0000000030264000   size: 0x0000000000001170   offset: 0x00000000002608f0   type: 0x0000000000000001
+LDR|INFO: region: 0x00000011   addr: 0x0000000030266000   size: 0x000000000001c6a0   offset: 0x0000000000261a60   type: 0x0000000000000001
+LDR|INFO: region: 0x00000012   addr: 0x0000000030283000   size: 0x00000000000d37c0   offset: 0x000000000027e100   type: 0x0000000000000001
+LDR|INFO: region: 0x00000013   addr: 0x0000000030357000   size: 0x000000000001c6a0   offset: 0x00000000003518c0   type: 0x0000000000000001
+LDR|INFO: region: 0x00000014   addr: 0x0000000030374000   size: 0x00000000000d37c0   offset: 0x000000000036df60   type: 0x0000000000000001
+LDR|INFO: region: 0x00000015   addr: 0x0000000030448000   size: 0x00000000000028f8   offset: 0x0000000000441720   type: 0x0000000000000001
+LDR|INFO: region: 0x00000016   addr: 0x000000003044b000   size: 0x00000000000010f0   offset: 0x0000000000444020   type: 0x0000000000000001
+LDR|INFO: region: 0x00000017   addr: 0x000000003044d000   size: 0x0000000000002378   offset: 0x0000000000445110   type: 0x0000000000000001
+LDR|INFO: region: 0x00000018   addr: 0x0000000030450000   size: 0x00000000000010d0   offset: 0x0000000000447490   type: 0x0000000000000001
+LDR|INFO: copying region 0x00000000
+LDR|INFO: copying region 0x00000001
+LDR|INFO: copying region 0x00000002
+LDR|INFO: copying region 0x00000003
+LDR|INFO: copying region 0x00000004
+LDR|INFO: copying region 0x00000005
+LDR|INFO: copying region 0x00000006
+LDR|INFO: copying region 0x00000007
+LDR|INFO: copying region 0x00000008
+LDR|INFO: copying region 0x00000009
+LDR|INFO: copying region 0x0000000a
+LDR|INFO: copying region 0x0000000b
+LDR|INFO: copying region 0x0000000c
+LDR|INFO: copying region 0x0000000d
+LDR|INFO: copying region 0x0000000e
+LDR|INFO: copying region 0x0000000f
+LDR|INFO: copying region 0x00000010
+LDR|INFO: copying region 0x00000011
+LDR|INFO: copying region 0x00000012
+LDR|INFO: copying region 0x00000013
+LDR|INFO: copying region 0x00000014
+LDR|INFO: copying region 0x00000015
+LDR|INFO: copying region 0x00000016
+LDR|INFO: copying region 0x00000017
+LDR|INFO: copying region 0x00000018
+LDR|INFO: CurrentEL=EL2
+LDR|INFO: Resetting CNTVOFF
+LDR|INFO: enabling MMU
+LDR|INFO: jumping to kernel
+ARP|NOTICE: client0 registering ip address: 172.16.1.145 with MAC: 52:54:01:00:00:03
+LWIP|NOTICE: DHCP request for client0 returned IP address: 172.16.1.145
+ARP|NOTICE: client1 registering ip address: 172.16.1.146 with MAC: 52:54:01:00:00:04
+LWIP|NOTICE: DHCP request for client1 returned IP address: 172.16.1.146
+Utilization connection established!
+client0 measurement starting... 
+client0 measurement finished 
+{
+L1 i-cache misses: 4CF30B
+L1 d-cache misses: EB181F
+L1 i-tlb misses: 1EB336
+L1 d-tlb misses: 75FA45
+Instructions: A2587011
+Branch mispredictions: 3D21F7
+}
+Total utilisation details: 
+{
+KernelUtilisation:  2dbc840f
+KernelEntries:  164685
+NumberSchedules:  ce850
+TotalUtilisation:  102cfb828
+}
+Utilisation details for PD: ETH DRIVER (1)
+{
+KernelUtilisation:  e840ec6
+KernelEntries:  87f82
+NumberSchedules:  482c2
+TotalUtilisation:  27e8f1e9
+}
+Utilisation details for PD: VIRT RX (2)
+{
+KernelUtilisation:  1287561f
+KernelEntries:  8ce96
+NumberSchedules:  44046
+TotalUtilisation:  1ef26a1d
+}
+Utilisation details for PD: VIRT TX (3)
+{
+KernelUtilisation:  51c0766
+KernelEntries:  1b889
+NumberSchedules:  1933a
+TotalUtilisation:  252ef476
+}
+Utilisation details for PD: COPIER0 (4)
+{
+KernelUtilisation:  3ba7e01
+KernelEntries:  1b08d
+NumberSchedules:  16944
+TotalUtilisation:  120dfb35
+}
+Utilisation details for PD: COPIER1 (5)
+{
+KernelUtilisation:  0
+KernelEntries:  0
+NumberSchedules:  0
+TotalUtilisation:  0
+}
+Utilisation details for PD: LWIP CLIENT0 (6)
+{
+KernelUtilisation:  2e57cd6
+KernelEntries:  11fed
+NumberSchedules:  fc42
+TotalUtilisation:  331bb32c
+}
+Utilisation details for PD: LWIP CLIENT1 (7)
+{
+KernelUtilisation:  18a39
+KernelEntries:  a3
+NumberSchedules:  9f
+TotalUtilisation:  64926
+}
+Utilisation details for PD: ARP (8)
+{
+KernelUtilisation:  a7b9
+KernelEntries:  3e
+NumberSchedules:  37
+TotalUtilisation:  19cfb
+}
+Utilisation details for PD: TIMER (9)
+{
+KernelUtilisation:  38b12
+KernelEntries:  188
+NumberSchedules:  129
+TotalUtilisation:  91d69
+}

@@ -62,13 +62,12 @@ _Static_assert(RX_DATA_REGION_SIZE_CLI1 >= RX_QUEUE_SIZE_CLI1 * NET_BUFFER_SIZE,
 
 #define MAX(a,b) (((a) > (b)) ? (a) : (b))
 
-_Static_assert(NET_MAX_BUFFERS >= TX_QUEUE_SIZE_DRIV, "Queue capacity must be >= largest TX queue.");
-_Static_assert(NET_MAX_BUFFERS >= MAX(RX_QUEUE_SIZE_DRIV, MAX(RX_QUEUE_SIZE_CLI0, RX_QUEUE_SIZE_CLI1)), "Shared queue capacity must be >=  largest RX queue.");
+#define ETH_MAX_QUEUE_SIZE MAX(TX_QUEUE_SIZE_DRIV, MAX(RX_QUEUE_SIZE_DRIV, MAX(RX_QUEUE_SIZE_CLI0, RX_QUEUE_SIZE_CLI1)))
 _Static_assert(TX_QUEUE_SIZE_DRIV >= TX_QUEUE_SIZE_ARP + TX_QUEUE_SIZE_CLI0 + TX_QUEUE_SIZE_CLI1, "Driver TX queue must have capacity to fit all of client's TX buffers.");
 _Static_assert(RX_QUEUE_SIZE_ARP >= RX_QUEUE_SIZE_DRIV, "Arp queues must have capacity to fit all rx buffers.");
 _Static_assert(RX_QUEUE_SIZE_COPY0 >= RX_QUEUE_SIZE_DRIV, "Copy0 queues must have capacity to fit all RX buffers.");
 _Static_assert(RX_QUEUE_SIZE_COPY1 >= RX_QUEUE_SIZE_DRIV, "Copy1 queues must have capacity to fit all RX buffers.");
-_Static_assert(sizeof(net_queue_t) <= DATA_REGION_SIZE, "net_queue_t must fit into a single data region.");
+_Static_assert(sizeof(net_queue_t) + ETH_MAX_QUEUE_SIZE * sizeof(net_buff_desc_t) <= DATA_REGION_SIZE, "net_queue_t must fit into a single data region.");
 
 static inline bool __str_match(const char *s0, const char *s1)
 {

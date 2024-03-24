@@ -53,8 +53,8 @@ hw_ring_t tx;
 net_queue_handle_t rx_queue;
 net_queue_handle_t tx_queue;
 
-volatile struct eth_mac_regs *eth_mac = (void *)eth_regs;
-volatile struct eth_dma_regs *eth_dma = (void *)(eth_regs + DMA_REG_OFFSET);
+volatile struct eth_mac_regs *eth_mac;
+volatile struct eth_dma_regs *eth_dma;
 
 static inline bool hw_ring_full(hw_ring_t *ring, size_t ring_size)
 {
@@ -84,7 +84,7 @@ static void rx_provide()
 {
     bool reprocess = true;
     while (reprocess) {
-        while (!hw_ring_full(&rx, RX_COUNT) && !net_queue_empty(rx_queue.free)) {
+        while (!hw_ring_full(&rx, RX_COUNT) && !net_queue_empty_free(&rx_queue)) {
             net_buff_desc_t buffer;
             int err = net_dequeue_free(&rx_queue, &buffer);
             assert(!err);
@@ -93,17 +93,17 @@ static void rx_provide()
             if (rx.tail + 1 == RX_COUNT) cntl |= DESC_RXCTRL_RXRINGEND;
 
             rx.descr_mdata[rx.tail] = buffer;
-            update_ring_slot(&rx, rx.tail, DESC_RXSTS_OWNBYDMA, cntl, buffer.phys_or_offset, 0);
+            update_ring_slot(&rx, rx.tail, DESC_RXSTS_OWNBYDMA, cntl, buffer.io_or_offset, 0);
             eth_dma->rxpolldemand = POLL_DATA;
 
             rx.tail = (rx.tail + 1) % RX_COUNT;
         }
 
-        net_request_signal(rx_queue.free);
+        net_request_signal_free(&rx_queue);
         reprocess = false;
 
-        if (!net_queue_empty(rx_queue.free) && !hw_ring_full(&rx, RX_COUNT)) {
-            net_cancel_signal(rx_queue.free);
+        if (!net_queue_empty_free(&rx_queue) && !hw_ring_full(&rx, RX_COUNT)) {
+            net_cancel_signal_free(&rx_queue);
             reprocess = true;
         }
     }
@@ -125,7 +125,7 @@ static void rx_return(void)
             if (rx.tail + 1 == RX_COUNT) cntl |= DESC_RXCTRL_RXRINGEND;
 
             rx.descr_mdata[rx.tail] = buffer;
-            update_ring_slot(&rx, rx.tail, DESC_RXSTS_OWNBYDMA, cntl, buffer.phys_or_offset, 0);
+            update_ring_slot(&rx, rx.tail, DESC_RXSTS_OWNBYDMA, cntl, buffer.io_or_offset, 0);
             eth_dma->rxpolldemand = POLL_DATA;
         } else {
             buffer.len = (d->status & DESC_RXSTS_LENMSK) >> DESC_RXSTS_LENSHFT;
@@ -136,8 +136,8 @@ static void rx_return(void)
         rx.head = (rx.head + 1) % RX_COUNT;
     }
 
-    if (packets_transferred && net_require_signal(rx_queue.active)) {
-        net_cancel_signal(rx_queue.active);
+    if (packets_transferred && net_require_signal_active(&rx_queue)) {
+        net_cancel_signal_active(&rx_queue);
         microkit_notify(RX_CH);
     }
 }
@@ -146,7 +146,7 @@ static void tx_provide(void)
 {
     bool reprocess = true;
     while (reprocess) {
-        while (!(hw_ring_full(&tx, TX_COUNT)) && !net_queue_empty(tx_queue.active)) {
+        while (!(hw_ring_full(&tx, TX_COUNT)) && !net_queue_empty_active(&tx_queue)) {
             net_buff_desc_t buffer;
             int err = net_dequeue_active(&tx_queue, &buffer);
             assert(!err);
@@ -155,16 +155,16 @@ static void tx_provide(void)
             cntl |= DESC_TXCTRL_TXLAST | DESC_TXCTRL_TXFIRST | DESC_TXCTRL_TXINT;
             if (tx.tail + 1 == TX_COUNT) cntl |= DESC_TXCTRL_TXRINGEND;
             tx.descr_mdata[tx.tail] = buffer;
-            update_ring_slot(&tx, tx.tail, DESC_TXSTS_OWNBYDMA, cntl, buffer.phys_or_offset, 0);
+            update_ring_slot(&tx, tx.tail, DESC_TXSTS_OWNBYDMA, cntl, buffer.io_or_offset, 0);
 
             tx.tail = (tx.tail + 1) % TX_COUNT;
         }
     
-        net_request_signal(tx_queue.active);
+        net_request_signal_active(&tx_queue);
         reprocess = false;
 
-        if (!hw_ring_full(&tx, TX_COUNT) && !net_queue_empty(tx_queue.active)) {
-            net_cancel_signal(tx_queue.active);
+        if (!hw_ring_full(&tx, TX_COUNT) && !net_queue_empty_active(&tx_queue)) {
+            net_cancel_signal_active(&tx_queue);
             reprocess = true;
         }
     }
@@ -187,13 +187,12 @@ static void tx_return(void)
         tx.head = (tx.head + 1) % TX_COUNT;
     }
 
-    if (enqueued && net_require_signal(tx_queue.free)) {
-        net_cancel_signal(tx_queue.free);
+    if (enqueued && net_require_signal_free(&tx_queue)) {
+        net_cancel_signal_free(&tx_queue);
         microkit_notify(TX_CH);
     }
 }
 
-// size_t dropped;
 static void handle_irq()
 {
     uint32_t e = eth_dma->status;
@@ -211,6 +210,8 @@ static void handle_irq()
 
 static void eth_setup(void)
 {
+    eth_mac = (void *)eth_regs;
+    eth_dma = (void *)(eth_regs + DMA_REG_OFFSET);
     uint32_t l = eth_mac->macaddr0lo;
     uint32_t h = eth_mac->macaddr0hi;
 

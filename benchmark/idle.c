@@ -15,7 +15,7 @@
 #define ULONG_MAX 0xfffffffffffffffful
 
 uintptr_t cyclecounters_vaddr;
-struct bench *b = (void *)cyclecounters_vaddr;
+struct bench *b;
 
 void count_idle(void)
 {
@@ -62,6 +62,6 @@ void notified(microkit_channel ch)
 
 void init(void)
 {
-    /* Nothing to set up as benchmark.c initialises the sel4bench library for us. */
+    b = (void *)cyclecounters_vaddr;
     return;
 }

@@ -27,21 +27,21 @@ void rx_return(void)
     bool reprocess = true;
 
     while (reprocess) {
-        while (!net_queue_empty(rx_queue_virt.active) && !net_queue_empty(rx_queue_cli.free)) {
+        while (!net_queue_empty_active(&rx_queue_virt) && !net_queue_empty_free(&rx_queue_cli)) {
             net_buff_desc_t cli_buffer, virt_buffer;
             int err = net_dequeue_free(&rx_queue_cli, &cli_buffer);
             assert(!err);
 
-            if (cli_buffer.phys_or_offset % NET_BUFFER_SIZE || cli_buffer.phys_or_offset >= NET_BUFFER_SIZE * ((net_queue_t *)rx_free_cli)->size) {
-                sddf_dprintf("COPY|LOG: Client provided offset %llx which is not buffer aligned or outside of buffer region\n", cli_buffer.phys_or_offset);
+            if (cli_buffer.io_or_offset % NET_BUFFER_SIZE || cli_buffer.io_or_offset >= NET_BUFFER_SIZE * rx_queue_cli.size) {
+                sddf_dprintf("COPY|LOG: Client provided offset %llx which is not buffer aligned or outside of buffer region\n", cli_buffer.io_or_offset);
                 continue;
             }
 
             err = net_dequeue_active(&rx_queue_virt, &virt_buffer);
             assert(!err);
 
-            uintptr_t cli_addr = cli_buffer_data_region + cli_buffer.phys_or_offset;
-            uintptr_t virt_addr = virt_buffer_data_region + virt_buffer.phys_or_offset;
+            uintptr_t cli_addr = cli_buffer_data_region + cli_buffer.io_or_offset;
+            uintptr_t virt_addr = virt_buffer_data_region + virt_buffer.io_or_offset;
 
             memcpy((void *)cli_addr, (void *)virt_addr, virt_buffer.len);
             cli_buffer.len = virt_buffer.len;
@@ -56,28 +56,28 @@ void rx_return(void)
             enqueued = true;
         }
         
-        net_request_signal(rx_queue_virt.active);
+        net_request_signal_active(&rx_queue_virt);
 
         /* Only request signal from client if incoming packets from multiplexer are awaiting free buffers */
-        if (!net_queue_empty(rx_queue_virt.active)) net_request_signal(rx_queue_cli.free);
-        else net_cancel_signal(rx_queue_cli.free);
+        if (!net_queue_empty_active(&rx_queue_virt)) net_request_signal_free(&rx_queue_cli);
+        else net_cancel_signal_free(&rx_queue_cli);
 
         reprocess = false;
         
-        if (!net_queue_empty(rx_queue_virt.active) && !net_queue_empty(rx_queue_cli.free)) {
-            net_cancel_signal(rx_queue_virt.active);
-            net_cancel_signal(rx_queue_cli.free);
+        if (!net_queue_empty_active(&rx_queue_virt) && !net_queue_empty_free(&rx_queue_cli)) {
+            net_cancel_signal_active(&rx_queue_virt);
+            net_cancel_signal_free(&rx_queue_cli);
             reprocess = true;
         }
     }
 
-    if (enqueued && net_require_signal(rx_queue_cli.active)) {
-        net_cancel_signal(rx_queue_cli.active);
+    if (enqueued && net_require_signal_active(&rx_queue_cli)) {
+        net_cancel_signal_active(&rx_queue_cli);
         microkit_notify(CLIENT_CH);
     }
 
-    if (enqueued && net_require_signal(rx_queue_virt.free)) {
-        net_cancel_signal(rx_queue_virt.free);
+    if (enqueued && net_require_signal_free(&rx_queue_virt)) {
+        net_cancel_signal_free(&rx_queue_virt);
         microkit_notify_delayed(VIRT_RX_CH);
     }
 }
@@ -90,5 +90,5 @@ void notified(microkit_channel ch)
 void init(void)
 {
     copy_queue_init_sys(microkit_name, &rx_queue_cli, rx_free_cli, rx_active_cli, &rx_queue_virt, rx_free_virt, rx_active_virt);
-    net_buffers_init(rx_queue_cli.free, 0, rx_queue_cli.free->size);
+    net_buffers_init(&rx_queue_cli, 0);
 }

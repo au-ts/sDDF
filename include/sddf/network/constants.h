@@ -9,7 +9,6 @@
 #define ETHARP_OPCODE_REQUEST 1
 #define ETHARP_OPCODE_REPLY 2
 
-#define NET_MAX_BUFFERS 1536
 #define NET_BUFFER_SIZE 2048
 
 struct ethernet_address {

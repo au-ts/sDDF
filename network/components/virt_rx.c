@@ -54,39 +54,39 @@ void rx_return(void)
     bool reprocess = true;
     bool notify_clients[NUM_CLIENTS] = {false};
     while (reprocess) {
-        while (!net_queue_empty(state.rx_queue_drv.active)) {
+        while (!net_queue_empty_active(&state.rx_queue_drv)) {
             net_buff_desc_t buffer;
             int err = net_dequeue_active(&state.rx_queue_drv, &buffer);
             assert(!err);
 
-            buffer.phys_or_offset = buffer.phys_or_offset - buffer_data_paddr;
-            microkit_arm_vspace_data_invalidate(buffer.phys_or_offset + buffer_data_vaddr, buffer.phys_or_offset + buffer_data_vaddr + ROUND_UP(buffer.len, 64));
+            buffer.io_or_offset = buffer.io_or_offset - buffer_data_paddr;
+            microkit_arm_vspace_data_invalidate(buffer.io_or_offset + buffer_data_vaddr, buffer.io_or_offset + buffer_data_vaddr + ROUND_UP(buffer.len, 64));
 
-            int client = get_client((struct ethernet_header *) (buffer.phys_or_offset + buffer_data_vaddr));
+            int client = get_client((struct ethernet_header *) (buffer.io_or_offset + buffer_data_vaddr));
             if (client >= 0) {
                 err = net_enqueue_active(&state.rx_queue_clients[client], buffer);
                 assert(!err);
                 notify_clients[client] = true;
             } else {
-                buffer.phys_or_offset = buffer.phys_or_offset + buffer_data_paddr;
+                buffer.io_or_offset = buffer.io_or_offset + buffer_data_paddr;
                 err = net_enqueue_free(&state.rx_queue_drv, buffer);
                 assert(!err);
                 notify_drv = true;
             }
         }
 
-        net_request_signal(state.rx_queue_drv.active);
+        net_request_signal_active(&state.rx_queue_drv);
         reprocess = false;
 
-        if (!net_queue_empty(state.rx_queue_drv.active)) {
-            net_cancel_signal(state.rx_queue_drv.active);
+        if (!net_queue_empty_active(&state.rx_queue_drv)) {
+            net_cancel_signal_active(&state.rx_queue_drv);
             reprocess = true;
         }
     }
 
     for (int client = 0; client < NUM_CLIENTS; client++) {
-        if (notify_clients[client] && net_require_signal(state.rx_queue_clients[client].active)) {
-            net_cancel_signal(state.rx_queue_clients[client].active);
+        if (notify_clients[client] && net_require_signal_active(&state.rx_queue_clients[client])) {
+            net_cancel_signal_active(&state.rx_queue_clients[client]);
             microkit_notify(client + CLIENT_CH);
         }
     }    
@@ -97,31 +97,31 @@ void rx_provide(void)
     for (int client = 0; client < NUM_CLIENTS; client++) {
         bool reprocess = true;
         while (reprocess) {
-            while (!net_queue_empty(state.rx_queue_clients[client].free)) {
+            while (!net_queue_empty_free(&state.rx_queue_clients[client])) {
                 net_buff_desc_t buffer;
                 int err = net_dequeue_free(&state.rx_queue_clients[client], &buffer);
                 assert(!err);
-                assert(!(buffer.phys_or_offset % NET_BUFFER_SIZE) && 
-                       (buffer.phys_or_offset < NET_BUFFER_SIZE * state.rx_queue_clients[client].free->size));
+                assert(!(buffer.io_or_offset % NET_BUFFER_SIZE) && 
+                       (buffer.io_or_offset < NET_BUFFER_SIZE * state.rx_queue_clients[client].size));
 
-                buffer.phys_or_offset = buffer.phys_or_offset + buffer_data_paddr;
+                buffer.io_or_offset = buffer.io_or_offset + buffer_data_paddr;
                 err = net_enqueue_free(&state.rx_queue_drv, buffer);
                 assert(!err);
                 notify_drv = true;
             }
 
-            net_request_signal(state.rx_queue_clients[client].free);
+            net_request_signal_free(&state.rx_queue_clients[client]);
             reprocess = false;
 
-            if (!net_queue_empty(state.rx_queue_clients[client].free)) {
-                net_cancel_signal(state.rx_queue_clients[client].free);
+            if (!net_queue_empty_free(&state.rx_queue_clients[client])) {
+                net_cancel_signal_free(&state.rx_queue_clients[client]);
                 reprocess = true;
             }
         }
     }
 
-    if (notify_drv && net_require_signal(state.rx_queue_drv.free)) {
-        net_cancel_signal(state.rx_queue_drv.free);
+    if (notify_drv && net_require_signal_free(&state.rx_queue_drv)) {
+        net_cancel_signal_free(&state.rx_queue_drv);
         microkit_notify(DRIVER_CH);
     }
 }
@@ -138,10 +138,10 @@ void init(void)
 
     net_queue_init(&state.rx_queue_drv, (net_queue_t *)rx_free_drv, (net_queue_t *)rx_active_drv, RX_QUEUE_SIZE_DRIV);
     virt_queue_init_sys(microkit_name, state.rx_queue_clients, rx_free_arp, rx_active_arp);
-    net_buffers_init((net_queue_t *)rx_free_drv, buffer_data_paddr, RX_QUEUE_SIZE_DRIV);
+    net_buffers_init(&state.rx_queue_drv, buffer_data_paddr);
 
-    if (net_require_signal(state.rx_queue_drv.free)) {
-        net_cancel_signal(state.rx_queue_drv.free);
+    if (net_require_signal_free(&state.rx_queue_drv)) {
+        net_cancel_signal_free(&state.rx_queue_drv);
         microkit_notify_delayed(DRIVER_CH);
     }
 }

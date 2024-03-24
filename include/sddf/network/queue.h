@@ -9,14 +9,13 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <sddf/network/queue.h>
 #include <sddf/network/constants.h>
 #include <sddf/util/fence.h>
 #include <sddf/util/util.h>
 
 typedef struct net_buff_desc {
-    /* offset of buffer within buffer memory region or physical address of buffer */
-    uintptr_t phys_or_offset;
+    /* offset of buffer within buffer memory region or io address of buffer */
+    uint64_t io_or_offset;
     /* length of data inside buffer */
     uint16_t len;
 } net_buff_desc_t;
@@ -26,12 +25,10 @@ typedef struct net_queue {
     uint32_t tail;
     /* index to remove from */
     uint32_t head;
-    /* buffer descripter array - length of array must be equal to queue size */
-    net_buff_desc_t buffers[NET_MAX_BUFFERS];
-    /* size of the queue */
-    uint32_t size;
     /* flag to indicate whether consumer requires signalling */
     bool consumer_signalled;
+    /* buffer descripter array */
+    net_buff_desc_t buffers[];
 } net_queue_t;
 
 typedef struct net_queue_handle {
@@ -39,88 +36,60 @@ typedef struct net_queue_handle {
     net_queue_t *free;
      /* filled buffers */
     net_queue_t *active;
+    /* size of the queues */
+    uint32_t size;
 } net_queue_handle_t;
 
 /**
- * Check if the queue is empty.
+ * Check if the free queue is empty.
  *
- * @param queue queue to check.
+ * @param queue queue handle to dequeue from.
  *
  * @return true indicates the buffer is empty, false otherwise.
  */
-static inline bool net_queue_empty(net_queue_t *queue)
+static inline bool net_queue_empty_free(net_queue_handle_t *queue)
 {
-    return (queue->tail == queue->head);
+    return ((queue->free->head % queue->size) == (queue->free->tail % queue->size));
 }
 
 /**
- * Check if the queue is full.
+ * Check if the active queue is empty.
  *
- * @param queue queue to check.
+ * @param queue queue handle to dequeue from.
+ *
+ * @return true indicates the buffer is empty, false otherwise.
+ */
+static inline bool net_queue_empty_active(net_queue_handle_t *queue)
+{
+    return ((queue->active->head % queue->size) == (queue->active->tail % queue->size));
+}
+
+/**
+ * Check if the free queue is full.
+ *
+ * @param queue queue handle to dequeue from.
  *
  * @return true indicates the queue is full, false otherwise.
  */
-static inline bool net_queue_full(net_queue_t * queue)
+static inline bool net_queue_full_free(net_queue_handle_t *queue)
 {
-    return (((queue->tail + 1) % queue->size) == queue->head);
+    return (((queue->free->tail + 1) % queue->size) == (queue->free->head % queue->size));
 }
 
 /**
- * Return the number of buffers in a queue.
+ * Check if the active queue is full.
  *
- * @param queue queue to check.
+ * @param queue queue handle to dequeue from.
  *
- * @return number of buffers in a queue.
+ * @return true indicates the queue is full, false otherwise.
  */
-static inline uint32_t net_queue_size(net_queue_t * queue)
+static inline bool net_queue_full_active(net_queue_handle_t *queue)
 {
-    return (((queue->tail + queue->size) - queue->head) % queue->size);
+    return (((queue->active->tail + 1) % queue->size) == (queue->active->head % queue->size));
 }
 
 /**
- * Enqueue an element into a queue.
- *
- * @param queue queue to enqueue into.
- * @param buffer buffer descriptor for buffer to be enqueued.
- *
- * @return -1 when queue is full, 0 on success.
- */
-static inline int net_enqueue(net_queue_t *queue, net_buff_desc_t buffer)
-{
-    if (net_queue_full(queue)) return -1;
-
-    queue->buffers[queue->tail] = buffer;
-#ifdef CONFIG_ENABLE_SMP_SUPPORT
-    THREAD_MEMORY_RELEASE();
-#endif
-    queue->tail = (queue->tail + 1) % queue->size;
-
-    return 0;
-}
-
-/**
- * Dequeue an element to a queue.
- *
- * @param queue queue to dequeue from.
- * @param buffer pointer to buffer descriptor for buffer to be dequeued.
- *
- * @return -1 when queue is empty, 0 on success.
- */
-static inline int net_dequeue(net_queue_t *queue, net_buff_desc_t *buffer)
-{
-    if (net_queue_empty(queue)) return -1;
-
-    *buffer = queue->buffers[queue->head];
-#ifdef CONFIG_ENABLE_SMP_SUPPORT
-    THREAD_MEMORY_RELEASE();
-#endif
-    queue->head = (queue->head + 1) % queue->size;
-
-    return 0;
-}
-
-/**
- * Enqueue an element into an free queue.
+ * Enqueue an element into a free queue.
  *
  * @param queue queue to enqueue into.
  * @param buffer buffer descriptor for buffer to be enqueued.
@@ -129,7 +98,15 @@ static inline int net_dequeue(net_queue_t *queue, net_buff_desc_t *buffer)
  */
 static inline int net_enqueue_free(net_queue_handle_t *queue, net_buff_desc_t buffer)
 {
-    return net_enqueue(queue->free, buffer);
+    if (net_queue_full_free(queue)) return -1;
+
+    queue->free->buffers[queue->free->tail % queue->size] = buffer;
+    #ifdef CONFIG_ENABLE_SMP_SUPPORT
+        THREAD_MEMORY_RELEASE();
+    #endif
+    queue->free->tail++;
+
+    return 0;
 }
 
 /**
@@ -142,7 +119,15 @@ static inline int net_enqueue_free(net_queue_handle_t *queue, net_buff_desc_t bu
  */
 static inline int net_enqueue_active(net_queue_handle_t *queue, net_buff_desc_t buffer)
 {
-    return net_enqueue(queue->active, buffer);
+    if (net_queue_full_active(queue)) return -1;
+
+    queue->active->buffers[queue->active->tail % queue->size] = buffer;
+    #ifdef CONFIG_ENABLE_SMP_SUPPORT
+        THREAD_MEMORY_RELEASE();
+    #endif
+    queue->active->tail++;
+
+    return 0;
 }
 
 /**
@@ -155,11 +140,19 @@ static inline int net_enqueue_active(net_queue_handle_t *queue, net_buff_desc_t 
  */
 static inline int net_dequeue_free(net_queue_handle_t *queue, net_buff_desc_t *buffer)
 {
-    return net_dequeue(queue->free, buffer);
+    if (net_queue_empty_free(queue)) return -1;
+
+    *buffer = queue->free->buffers[queue->free->head % queue->size];
+    #ifdef CONFIG_ENABLE_SMP_SUPPORT
+    THREAD_MEMORY_RELEASE();
+    #endif
+    queue->free->head++;
+
+    return 0;
 }
 
 /**
- * Dequeue an element from an active queue.
+ * Dequeue an element from the active queue.
  *
  * @param queue queue handle to dequeue from.
  * @param buffer pointer to buffer descriptor for buffer to be dequeued.
@@ -168,7 +161,15 @@ static inline int net_dequeue_free(net_queue_handle_t *queue, net_buff_desc_t *b
  */
 static inline int net_dequeue_active(net_queue_handle_t *queue, net_buff_desc_t *buffer)
 {
-    return net_dequeue(queue->active, buffer);
+    if (net_queue_empty_active(queue)) return -1;
+
+    *buffer = queue->active->buffers[queue->active->head % queue->size];
+    #ifdef CONFIG_ENABLE_SMP_SUPPORT
+    THREAD_MEMORY_RELEASE();
+    #endif
+    queue->active->head++;
+
+    return 0;
 }
 
 /**
@@ -183,58 +184,92 @@ static inline void net_queue_init(net_queue_handle_t *queue, net_queue_t *free, 
 {
     queue->free = free;
     queue->active = active;
-    queue->free->size = size;
-    queue->active->size = size;
+    queue->size = size;
 }
 
 /**
  * Initialise the free queue by filling with all free buffers.
  *
- * @param free queue to fill.
+ * @param queue queue handle to use.
  * @param base_addr start of the memory region the offsets are applied to (only used between virt and driver)
- * @param queue_size size of the queue.
  */
-static inline void net_buffers_init(net_queue_t *free, uintptr_t base_addr, uint32_t queue_size)
+static inline void net_buffers_init(net_queue_handle_t *queue, uintptr_t base_addr)
 {
-    for (uint32_t i = 0; i < queue_size - 1; i++) {
+    for (uint32_t i = 0; i < queue->size - 1; i++) {
         net_buff_desc_t buffer = {(NET_BUFFER_SIZE * i) + base_addr, 0};
-        int err = net_enqueue(free, buffer);
+        int err = net_enqueue_free(queue, buffer);
         assert(!err);
     }
 }
 
 /**
- * Indicate to producer of queue that consumer requires signalling.
+ * Indicate to producer of the free queue that consumer requires signalling.
  *
- * @param queue queue that requires signalling upon enqueuing.
+ * @param queue queue handle of free queue that requires signalling upon enqueuing.
  */
-static inline void net_request_signal(net_queue_t *queue)
+static inline void net_request_signal_free(net_queue_handle_t *queue)
 {
-    queue->consumer_signalled = false;
+    queue->free->consumer_signalled = false;
 #ifdef CONFIG_ENABLE_SMP_SUPPORT
     THREAD_MEMORY_RELEASE();
 #endif
 }
 
 /**
- * Indicate to producer of queue that consumer has been signalled.
+ * Indicate to producer of the active queue that consumer requires signalling.
  *
- * @param queue queue that has been signalled.
+ * @param queue queue handle of active queue that requires signalling upon enqueuing.
  */
-static inline void net_cancel_signal(net_queue_t *queue)
+static inline void net_request_signal_active(net_queue_handle_t *queue)
 {
-    queue->consumer_signalled = true;
+    queue->active->consumer_signalled = false;
 #ifdef CONFIG_ENABLE_SMP_SUPPORT
     THREAD_MEMORY_RELEASE();
 #endif
 }
 
 /**
- * Consumer requires signalling.
+ * Indicate to producer of the free queue that consumer has been signalled.
  *
- * @param queue queue to check.
+ * @param queue queue handle of the free queue that has been signalled.
  */
-static inline bool net_require_signal(net_queue_t *queue)
+static inline void net_cancel_signal_free(net_queue_handle_t *queue)
 {
-    return !queue->consumer_signalled;
+    queue->free->consumer_signalled = true;
+#ifdef CONFIG_ENABLE_SMP_SUPPORT
+    THREAD_MEMORY_RELEASE();
+#endif
+}
+
+/**
+ * Indicate to producer of the active queue that consumer has been signalled.
+ *
+ * @param queue queue handle of the active queue that has been signalled.
+ */
+static inline void net_cancel_signal_active(net_queue_handle_t *queue)
+{
+    queue->active->consumer_signalled = true;
+#ifdef CONFIG_ENABLE_SMP_SUPPORT
+    THREAD_MEMORY_RELEASE();
+#endif
+}
+
+/**
+ * Consumer of the free queue requires signalling.
+ *
+ * @param queue queue handle of the free queue to check.
+ */
+static inline bool net_require_signal_free(net_queue_handle_t *queue)
+{
+    return !queue->free->consumer_signalled;
+}
+
+/**
+ * Consumer of the active queue requires signalling.
+ *
+ * @param queue queue handle of the active queue to check.
+ */
+static inline bool net_require_signal_active(net_queue_handle_t *queue)
+{
+    return !queue->active->consumer_signalled;
 }
