@@ -113,7 +113,7 @@ handle_irq(microkit_channel ch)
                 ch = i;
             }
         }
-        /* FIXME: Is there a race here?  -- Probably! Fix it later. */
+
         if (ch != -1) {
             pending_timeouts--;
             set_timeout((uint32_t)((next_timeout - curr_time) / NS_IN_MS));

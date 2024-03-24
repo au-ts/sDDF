@@ -97,7 +97,7 @@ void irq(microkit_channel ch)
                 ch = i;
             }
         }
-        /* FIXME: Is there a race here?  -- Probably! Fix it later. */
+
         if (ch != -1 && overflow_count == (next_timeout >> 32)) {
             pending_timeouts--;
             gpt[OCR1] = (uint32_t)next_timeout;
