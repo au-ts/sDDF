@@ -31,7 +31,7 @@
 #endif
 #endif
 
-#define ROUND_UP(n,d) (n/d + (n % d == 0 ? 0 : 1))
+#define ROUND_UP(n,d) (d*(n/d + (n % d == 0 ? 0 : 1)))
 
 static void _assert_fail(const char  *assertion, const char  *file, unsigned int line, const char  *function)
 {
