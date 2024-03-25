@@ -26,7 +26,7 @@ typedef struct net_queue {
     /* index to remove from */
     uint32_t head;
     /* flag to indicate whether consumer requires signalling */
-    bool consumer_signalled;
+    uint64_t consumer_signalled;
     /* buffer descripter array */
     net_buff_desc_t buffers[];
 } net_queue_t;
@@ -209,7 +209,7 @@ static inline void net_buffers_init(net_queue_handle_t *queue, uintptr_t base_ad
  */
 static inline void net_request_signal_free(net_queue_handle_t *queue)
 {
-    queue->free->consumer_signalled = false;
+    queue->free->consumer_signalled = 0;
 #ifdef CONFIG_ENABLE_SMP_SUPPORT
     THREAD_MEMORY_RELEASE();
 #endif
@@ -222,7 +222,7 @@ static inline void net_request_signal_free(net_queue_handle_t *queue)
  */
 static inline void net_request_signal_active(net_queue_handle_t *queue)
 {
-    queue->active->consumer_signalled = false;
+    queue->active->consumer_signalled = 0;
 #ifdef CONFIG_ENABLE_SMP_SUPPORT
     THREAD_MEMORY_RELEASE();
 #endif
@@ -235,7 +235,7 @@ static inline void net_request_signal_active(net_queue_handle_t *queue)
  */
 static inline void net_cancel_signal_free(net_queue_handle_t *queue)
 {
-    queue->free->consumer_signalled = true;
+    queue->free->consumer_signalled = 1;
 #ifdef CONFIG_ENABLE_SMP_SUPPORT
     THREAD_MEMORY_RELEASE();
 #endif
@@ -248,7 +248,7 @@ static inline void net_cancel_signal_free(net_queue_handle_t *queue)
  */
 static inline void net_cancel_signal_active(net_queue_handle_t *queue)
 {
-    queue->active->consumer_signalled = true;
+    queue->active->consumer_signalled = 1;
 #ifdef CONFIG_ENABLE_SMP_SUPPORT
     THREAD_MEMORY_RELEASE();
 #endif
