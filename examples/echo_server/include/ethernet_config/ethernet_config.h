@@ -12,7 +12,8 @@
 #define COPY1_NAME "copy1"
 #define VIRT_RX_NAME "virt_rx"
 #define VIRT_TX_NAME "virt_tx"
-#define DRIVER_NAME "eth"
+#define ETH_NAME "eth"
+#define TIMER_NAME "timer"
 
 #define DATA_REGION_SIZE                    0x200000
 #define HW_REGION_SIZE                      0x10000
