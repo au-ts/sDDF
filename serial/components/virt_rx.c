@@ -25,11 +25,14 @@ uintptr_t rx_free_client;
 uintptr_t rx_active_client;
 uintptr_t rx_free_client2;
 uintptr_t rx_active_client2;
+uintptr_t rx_free_client3;
+uintptr_t rx_active_client3;
 
 uintptr_t rx_data_driver;
 // @ivanv: unused
 uintptr_t rx_data_client;
 uintptr_t rx_data_client2;
+uintptr_t rx_data_client3;
 
 // Have an array of client rings.
 serial_queue_handle_t rx_queue[SERIAL_NUM_CLIENTS];
@@ -240,6 +243,9 @@ void init (void) {
     serial_queue_init(&rx_queue[1], (serial_queue_t *)rx_free_client2, (serial_queue_t *)rx_active_client2, 0, NUM_ENTRIES, NUM_ENTRIES);
 #endif
 
+#if SERIAL_NUM_CLIENTS > 2
+    serial_queue_init(&rx_queue[2], (serial_queue_t *)rx_free_client3, (serial_queue_t *)rx_active_client3, 0, NUM_ENTRIES, NUM_ENTRIES);
+#endif
     serial_queue_init(&drv_rx_queue, (serial_queue_t *)rx_free_driver, (serial_queue_t *)rx_active_driver, 0, NUM_ENTRIES, NUM_ENTRIES);
 
     for (int i = 0; i < NUM_ENTRIES - 1; i++) {
