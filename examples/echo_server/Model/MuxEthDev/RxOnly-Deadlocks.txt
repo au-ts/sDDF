@@ -1,0 +1,20 @@
+DEADLOCK 1
+- DEV reads 1 and 2, sends an IRQ_RX
+- ETH transfers 1 and 2 to RX_used, sends notifification to RX_used, sets RX_free.notify_flag
+- MUX reads 1 and 2, sends notification to RX_free, interrupted before setting RX_used.notify_flag
+- ETH transfers buffers 1 and 2 to HW_RX, interrupted before setting RX_free.notify_flag to 0
+- DEV reads 1 and 2, sends an IRQ_RX
+- ETH awakens again, no sets RX_free.notify_flag to 0, receives IRQ_RX, transfers 1 and 2 to RX_used. 
+  RX_used.notify_flag is still 0 (as MUX_RX was interrupted), so RX_used.notification is not sent
+- ETH sets RX_free.notify_flag
+- MUX awakens and sets RX_used.notify_flag to 1
+- No more progress can be made
+
+ATTEMPT TO FIX DEADLOCK 1 BY KEEPING RX_used.notify_flag = 1
+- DEV reads 1 and 2
+- ETH transfers 1 and 2 to RX_used, sends RX_used.notification, interrupted before setting 
+  RX_free.notify_flag to 1
+- MUX_RX receives 1 and 2, does not send RX_free.notification since ETH was interrupted before setting flag
+- ETH wakes up and sets flag
+--> This shouldn't actually be possible, as the ETH should not be interupted by MUX_RX
+--> Regardless, this was fixed by setting RX_free.notify_flag = 1

@@ -1,0 +1,42 @@
+1. DEV receives 2 packets, sends an IRQ_RX
+2. ETH processes 2 packets, sends ETH_RX_used notification to MUX_RX
+3. MUX_RX receives ETH_RX_used notification, transfers 2 packets to CLT_RX_used, sends CLT_RX_used notification to CLT
+4. CLT receives CLT_RX_used notification, transfers 2 packets to CLT_TX_used from CLT_TX_free and transfers 2 packets to CLT_RX_free from CLT_RX_used
+-> Sends CLT_RX_free notification to MUX_RX
+    5. MUX_RX receives CLT_RX_free notification, transfers 2 packets to ETH_RX_free and sends notification to ETH
+    6. ETH receives ETH_RX_free notification, transfers 2 packets to hardware ring
+    7. DEV receives 2 packets, sends IRQ_RX
+    8. ETH receives IRQ_RX, transfers 2 packets to ETH_RX_used and sends notification to MUX_RX
+    9. MUX_RX receives ETH_RX_used notification, transfers 2 packets to CLT_RX_used and sends notification to client
+-> Sends CLT_TX_used notification to MUX_TX
+10. MUX_TX receives CLT_TX_used notification, transfers 2 packets to ETH_TX_used and sends notification
+11. ETH receives ETH_TX_used notification, transfers 2 packets to hardware ring
+12. DEV sends 2 packets, sends IRQ_TX
+13. ETH receives IRQ_TX, transfers 2 packets to ETH_TX_free, sends notification
+14. MUX_TX receives ETH_TX_free notification, transfers 2 packets to CLT_TX_free and sends notification. Also sends notification to ETH_TX_used (unnecessarily causing ETH to wake up and go back to sleep)
+15. CLT receives CLT_TX_free notification. Linked list size is zero so CLT_TX_free notify flag is set to 0. 
+    CLT transfers 2 packets to CLT_TX_used from CLT_TX_free and transfers 2 packets to CLT_RX_free from CLT_RX_used
+-> Sends CLT_RX_free notification to MUX_RX
+    16. MUX_RX receives CLT_RX_free notification, transfers 2 packets to ETH_RX_free and sends notification to ETH
+    17. ETH receives ETH_RX_free notification, transfers 2 packets to hardware ring
+    18. DEV receives 2 packets, sends IRQ_RX
+    19. ETH receives IRQ_RX, transfers 2 packets to ETH_RX_used and sends notification to MUX_RX
+    20. MUX_RX receives ETH_RX_used notification, transfers 2 packets to CLT_RX_used and sends notification to client BLOCKING HERE!!!
+-> Sends CLT_TX_used notification to MUX_TX
+21. MUX_TX receives CLT_TX_used notification, transfers 2 packets to ETH_TX_used and sends notification
+22. ETH receives ETH_TX_used notification, transfers 2 packets to hardware ring
+23. DEV sends 2 packets, sends IRQ_TX
+24. ETH receives IRQ_TX, transfers 2 packets to ETH_TX_free, sends notification
+25. MUX_TX re-awakens and sets ETH_TX_free notify flag to 0, receives ETH_TX_free notification, transfers 2 packets to CLT_TX_free and sends notification. Also sends notification to ETH_TX_used (unnecessarily causing ETH to wake up and go back to sleep)
+26. CLT receives CLT_RX_used notification, transfers 2 packets to CLT_TX_used from CLT_TX_free and transfers 2 packets to CLT_RX_free from CLT_RX_used
+-> Sends CLT_RX_free notification to MUX_RX
+    27. MUX_RX receives CLT_RX_free notification, transfers 2 packets to ETH_RX_free and sends notification to ETH
+    28. ETH receives ETH_RX_free notification, transfers 2 packets to hardware ring
+    29. DEV receives 2 packets, sends IRQ_RX
+    30. ETH receives IRQ_RX, transfers 2 packets to ETH_RX_used and sends notification to MUX_RX
+    31. MUX_RX receives ETH_RX_used notification, transfers 2 packets to CLT_RX_used and sends notification to client
+-> Sends CLT_TX_used notification to MUX_TX
+32. MUX_TX receives CLT_TX_used notification, transfers 2 packets to ETH_TX_used and sends notification
+33. ETH receives ETH_TX_used notification, transfers 2 packets to hardware ring
+34. DEV sends 2 packets, sends IRQ_TX
+35. ETH receives IRQ_TX, transfers 2 packets to ETH_TX_free, does NOT send notification as ETH_TX_free notify flag is 0!

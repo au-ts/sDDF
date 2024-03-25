@@ -1,0 +1,15 @@
+1. DEV receives 2 packets, sends IRQ.
+2. ETH transfers packets to ETH RX used, sends notification and sets flag to 0.
+3. MUX_RX receives ETH RX used notification, transfers 2 packets to CLT RX used, sends notification and sets flag to 0. Interrupted
+    before transferring free buffers from CLT to ETH.
+4. CLT receives CLT RX used notification, transfers 2 packets to CLT RX free ring. Interrupted before notifying MUX_RX.
+5. MUX awakens from (3), transfers packets from CLT RX free to ETH RX free. Notifies ETH RX free and sets flag to 0.
+6. ETH receives ETH RX free, transfers 2 packets to HW_RX.
+7. DEV receives 2 packets, sends IRQ.
+8. ETH receives IRQ, transfers 2 packets to ETH_RX_used, sends notification and sets flag to 0.
+9. MUX_RX receives ETH RX used, transfers 2 packets to CLT RX used, notifies CLT and sets flag to 0.
+10. CLT sends notification from (4), setting CLT RX free flag to 0.
+11. MUX_RX receives CLT RX free, does no work and goes back to sleep. DOES NOT SET FLAG as size is never 1!
+12. CLT receives notification from (9), transfers 2 packets to CLT RX free but does not notify.
+
+(This is without checking if the queue is empty first)

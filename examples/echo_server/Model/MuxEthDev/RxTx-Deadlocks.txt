@@ -1,0 +1,129 @@
+Initial Read Deadlock
+- RX_free.notify_flag is initally 0 as the HW_RX ring is non-empty (in fact full)
+  to begin with
+- DEV receives packets and fills all HW_RX buffers, sends IRQ_RX to ETH
+- ETH transfers all packets from HW_RX to RX_used and notifies MUX_RX on 
+  RX_used.notification. Before it calculates that HW_RX is now empty (requiring 
+  RX_free.notify_flag to be set), MUX_RX starts running
+- MUX_RX processes all packets and places buffers into RX_free, but does not notify
+  ETH since RX_free.notify_flag is not set
+- When ETH awakens later, it sets RX_free.notify_flag, but the opportunity to
+  notify never occurs again
+- This should not happen in reality since ETH runs at a higher priority than MUX_RX
+
+Write Deadlock
+- DEV sends second last packet and IRQ_TX
+- ETH receives IRQ_TX and transfers now free buffer from HW_TX to TX_free
+- DEV sends last packet along with new IRQ_TX
+- ETH sends TX_free.notification corresponding to initial packet, and receives second IRQ_TX
+- MUX_TX wakes up since TX_free is no longer empty and sends one packet (moving a packet 
+  from TX_free to TX_used), but not yet sending a notification on TX_used.notification
+- ETH wakes up and transfers free buffer from HW_TX to TX_free, and sends notification on 
+  TX_free.notification
+- MUX_TX wakes again and finishes sending by sending a notification to TX_used.notification
+- ETH awakens to receive this notification (and not much else)
+- MUX_TX awakens again, attempts to send another packet setting
+TX_used_empty = 0
+  but stopping after that
+- ETH awakens, transferring packet from TX_used to HW_TX
+- DEV awakens, sending single packet in HW_TX and IRQ_RX
+- ETH receives IRQ_TX and transfers now free buffer from HW_TX to TX_free
+- MUX awakens and calculates
+original_size = 0
+- MUX sends 2 packets, transferring them from TX_free to TX_used. Calculates
+new_size = 2
+THUS 
+packets_enqueued != 0 && (TX_used_empty || (original_size + packets_enqueued != new_size))
+is
+(2 != 0) && (0 || (0+2 != 2)) = 0
+meaning that a used notification is not sent
+- So TX_free is empty (meaning a new packet cannot be sent), TX_used is full but there is
+  not no way for ETH to awaken to process the packets as it missed its notification, and
+  HW_TX is empty so no new packets will be received. Again, this should not happen in 
+  reality as ETH should not be interrupted by MUX_TX
+
+
+The above was fixed from changing this:
+
+ // MUX Transmit Component
+active proctype MUX_TX() {
+    // Initialisation
+    TX_free.notify_flag = 1;
+    TX_free.ring[0] = 1;
+    TX_free.ring[1] = 2;
+    TX_free.head = 2;
+
+    do
+        // MUX_TX has awoken by ETH indicating packets have been sent and there are free buffers in TX_free_ring
+        :: TX_free.notification ? 1 ->  skip;
+
+        // Client requests a transmission
+        :: !EMPTY(TX_free) -> 
+            bit TX_used_empty = EMPTY(TX_used);
+            short packets_enqueued = 0;
+            short original_size = SIZE(TX_used, CHAN_LENGTH);
+
+            d_step {
+                do  
+                    // Client has buffer to transmit and TX_used ring not full
+                    :: !EMPTY(TX_free) && !FULL(TX_used, CHAN_LENGTH) ->
+                        printf("MUX SEND: %d\n", NEXT(TX_free));
+                        TRANSFER_PACKET(TX_free, CHAN_LENGTH, TX_used, CHAN_LENGTH);
+
+                        // Packet has been enqueued
+                        packets_enqueued++;
+                    :: else -> break;
+                od;
+            }
+
+            // If packets have been enqueued AND ring was originally empty OR current size of ring is not equal to 
+            // original size + packets enqueued, notify ETH
+            short new_size = SIZE(TX_used, CHAN_LENGTH);
+            if
+                :: packets_enqueued != 0 && (TX_used_empty || (original_size + packets_enqueued != new_size)) -> TX_used.notification ! 1;
+                :: else;
+            fi
+    od;
+}
+
+to this:
+
+// MUX Transmit Component
+active proctype MUX_TX() {
+    // Initialisation
+    TX_free.notify_flag = 1;
+    TX_free.ring[0] = 1;
+    TX_free.ring[1] = 2;
+    TX_free.head = 2;
+
+    do
+        // MUX_TX has awoken by ETH indicating packets have been sent and there are free buffers in TX_free_ring
+        :: TX_free.notification ? 1 ->  skip;
+
+        // Client requests a transmission
+        :: !EMPTY(TX_free) -> 
+            short packets_enqueued = 0;
+            short original_size = SIZE(TX_used, CHAN_LENGTH);
+
+            d_step {
+                do  
+                    // Client has buffer to transmit and TX_used ring not full
+                    :: !EMPTY(TX_free) && !FULL(TX_used, CHAN_LENGTH) ->
+                        printf("MUX SEND: %d\n", NEXT(TX_free));
+                        TRANSFER_PACKET(TX_free, CHAN_LENGTH, TX_used, CHAN_LENGTH);
+
+                        // Packet has been enqueued
+                        packets_enqueued++;
+                    :: else -> break;
+                od;
+            }
+
+            // If packets have been enqueued AND ring was originally empty OR current size of ring is not equal to 
+            // original size + packets enqueued, notify ETH
+            short new_size = SIZE(TX_used, CHAN_LENGTH);
+            if
+                :: packets_enqueued != 0 && ((original_size==0) || (original_size + packets_enqueued != new_size)) -> TX_used.notification ! 1;
+                :: else;
+            fi
+    od;
+}

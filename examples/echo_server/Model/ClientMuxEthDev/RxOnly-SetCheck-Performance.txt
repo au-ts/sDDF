@@ -1,0 +1,7 @@
+CLT2 Client does no work x 2
+1. MUX_RX sends CLT notfication 1 and transfers all packets to ETH.
+2. Buffers are then looped through back to MUX, which transfers to CLT but does not yet send notification 2.
+3. CLT was already awake, proceses all buffers back to MUX.
+4. CLT receives notification 1.
+5. MUX_RX sends notification 2.
+6. CLT receives notification 2.
