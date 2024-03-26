@@ -31,7 +31,13 @@
 #endif
 #endif
 
-#define ROUND_UP(n,d) (d*(n/d + (n % d == 0 ? 0 : 1)))
+// Doing this with statement expressions & temporary variables to avoid issues
+// with operator precedence and evaluating arguments multiple times.
+#define ROUND_UP(n,d) \
+    ({ typeof (n) _n = (n); \
+       typeof (d) _d = (d); \
+       _d * (_n/_d + (_n % _d == 0 ? 0 : 1)); \
+    })
 
 static void _assert_fail(const char  *assertion, const char  *file, unsigned int line, const char  *function)
 {
