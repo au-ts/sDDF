@@ -37,6 +37,11 @@ clean_by_va(unsigned long vaddr)
     dmb();
 }
 
+// Intentionally no invalidate_by_va or cache_invalidate. The ARM instruction
+// for that -- `dc ivac` -- does not work in userspace (EL0). See [1].
+//
+// [1]: https://developer.arm.com/documentation/ddi0595/2021-06/AArch64-Instructions/DC-IVAC--Data-or-unified-Cache-line-Invalidate-by-VA-to-PoC
+
 void
 cache_clean_and_invalidate(unsigned long start, unsigned long end)
 {
