@@ -22,11 +22,11 @@ typedef struct net_buff_desc {
 
 typedef struct net_queue {
     /* index to insert at */
-    uint32_t tail;
+    uint16_t tail;
     /* index to remove from */
-    uint32_t head;
+    uint16_t head;
     /* flag to indicate whether consumer requires signalling */
-    uint64_t consumer_signalled;
+    uint32_t consumer_signalled;
     /* buffer descripter array */
     net_buff_desc_t buffers[];
 } net_queue_t;
@@ -49,7 +49,7 @@ typedef struct net_queue_handle {
  */
 static inline bool net_queue_empty_free(net_queue_handle_t *queue)
 {
-    return ((queue->free->head % queue->size) == (queue->free->tail % queue->size));
+    return !((queue->free->tail - queue->free->head) % queue->size);
 }
 
 /**
@@ -61,7 +61,7 @@ static inline bool net_queue_empty_free(net_queue_handle_t *queue)
  */
 static inline bool net_queue_empty_active(net_queue_handle_t *queue)
 {
-    return ((queue->active->head % queue->size) == (queue->active->tail % queue->size));
+    return !((queue->active->tail - queue->active->head) % queue->size);
 }
 
 /**
@@ -73,7 +73,7 @@ static inline bool net_queue_empty_active(net_queue_handle_t *queue)
  */
 static inline bool net_queue_full_free(net_queue_handle_t *queue)
 {
-    return (((queue->free->tail + 1) % queue->size) == (queue->free->head % queue->size));
+    return !((queue->free->tail + 1 - queue->free->head) % queue->size);
 }
 
 /**
@@ -85,7 +85,7 @@ static inline bool net_queue_full_free(net_queue_handle_t *queue)
  */
 static inline bool net_queue_full_active(net_queue_handle_t *queue)
 {
-    return (((queue->active->tail + 1) % queue->size) == (queue->active->head % queue->size));
+    return !((queue->active->tail + 1 - queue->active->head) % queue->size);
 }
 
 /**
