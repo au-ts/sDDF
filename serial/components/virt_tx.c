@@ -145,7 +145,7 @@ void init (void) {
     serial_queue_init(&tx_queue[1], (serial_queue_t *)tx_free_client2, (serial_queue_t *)tx_active_client2, 0, NUM_ENTRIES, NUM_ENTRIES);
 #endif
 #if SERIAL_NUM_CLIENTS > 2
-    serial_queue_init(&tx_ring[2], (serial_queue_t *)tx_free_client3, (serial_queue_t *)tx_active_client3, 0, NUM_ENTRIES, NUM_ENTRIES);
+    serial_queue_init(&tx_queue[2], (serial_queue_t *)tx_free_client3, (serial_queue_t *)tx_active_client3, 0, NUM_ENTRIES, NUM_ENTRIES);
 #endif
     serial_queue_init(&drv_tx_queue, (serial_queue_t *)tx_free_driver, (serial_queue_t *)tx_active_driver, 0, NUM_ENTRIES, NUM_ENTRIES);
 
