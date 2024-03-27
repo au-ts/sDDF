@@ -149,7 +149,9 @@ void enqueue_pbufs(struct pbuf *p)
  * stores pbuf to be sent upon buffers becoming available. 
  * */
 static err_t lwip_eth_send(struct netif *netif, struct pbuf *p)
-{   
+{
+    // sddf_dprintf("transmitting packet\n");
+    
     if (p->tot_len > NET_BUFFER_SIZE) {
         sddf_dprintf("LWIP|ERROR: attempted to send a packet of size  %u > BUFFER SIZE  %u\n", p->tot_len, NET_BUFFER_SIZE);
         return ERR_MEM;
@@ -182,8 +184,8 @@ static err_t lwip_eth_send(struct netif *netif, struct pbuf *p)
 
 void transmit(void)
 {
-    bool reprocess = true;
-    while (reprocess) {
+    // bool reprocess = true;
+    // while (reprocess) {
         while(state.head != NULL && !net_queue_empty_free(&state.tx_queue)) {
             err_t err = lwip_eth_send(&state.netif, state.head);
             if (err == ERR_MEM) {
@@ -200,22 +202,24 @@ void transmit(void)
         }
 
         /* Only request a signal if no more pbufs enqueud to send */
-        if (state.head == NULL || !net_queue_empty_free(&state.tx_queue)) net_cancel_signal_free(&state.tx_queue);
-        else net_request_signal_free(&state.tx_queue);
-        reprocess = false;
+        // if (state.head == NULL || !net_queue_empty_free(&state.tx_queue)) net_cancel_signal_free(&state.tx_queue);
+        // else net_request_signal_free(&state.tx_queue);
+        // reprocess = false;
 
-        if (state.head != NULL && !net_queue_empty_free(&state.tx_queue)) {
-            net_cancel_signal_free(&state.tx_queue);
-            reprocess = true;
-        }
-    }
+        // if (state.head != NULL && !net_queue_empty_free(&state.tx_queue)) {
+        //     net_cancel_signal_free(&state.tx_queue);
+        //     reprocess = true;
+        // }
+    // }
 }
 
 void receive(void)
 {
-    bool reprocess = true;
-    while (reprocess) {
+    // sddf_dprintf("lwip: receive\n");
+    // bool reprocess = true;
+    // while (reprocess) {
         while (!net_queue_empty_active(&state.rx_queue)) {
+            // sddf_dprintf("lwip: receive: got buffer\n");
             net_buff_desc_t buffer;
             int err = net_dequeue_active(&state.rx_queue, &buffer);
             assert(!err);
@@ -227,14 +231,14 @@ void receive(void)
             }
         }
         
-        net_request_signal_active(&state.rx_queue);
-        reprocess = false;
+        // net_request_signal_active(&state.rx_queue);
+        // reprocess = false;
 
-        if (!net_queue_empty_active(&state.rx_queue)) {
-            net_cancel_signal_active(&state.rx_queue);
-            reprocess = true;
-        }
-    }
+    //     if (!net_queue_empty_active(&state.rx_queue)) {
+    //         net_cancel_signal_active(&state.rx_queue);
+    //         reprocess = true;
+    //     }
+    // }
 }
 
 /**
@@ -265,6 +269,7 @@ static err_t ethernet_init(struct netif *netif)
 /* Callback function that prints DHCP supplied IP address and registers it with ARP component. */
 static void netif_status_callback(struct netif *netif)
 {
+    sddf_printf("NEITF STATUS CALLBACK: \n");
     if (dhcp_supplied_address(netif)) {
         bool success = arp_register_ipv4(ARP, ip4_addr_get_u32(netif_ip4_addr(netif)), state.mac);
         if (!success) {
@@ -272,6 +277,8 @@ static void netif_status_callback(struct netif *netif)
         } else {
             sddf_printf("LWIP|NOTICE: DHCP request for %s returned IP address: %s\n", microkit_name, ip4addr_ntoa(netif_ip4_addr(netif)));
         }
+    } else {
+        sddf_printf("UH OH WHAT DO??????\n");
     }
 }
 
@@ -309,15 +316,17 @@ void init(void)
     setup_udp_socket();
     setup_utilization_socket();
 
-    if (notify_rx && net_require_signal_free(&state.rx_queue)) {
-        net_cancel_signal_free(&state.rx_queue);
+    if (notify_rx // && net_require_signal_free(&state.rx_queue)
+        ) {
+        // net_cancel_signal_free(&state.rx_queue);
         notify_rx = false;
         if (!have_signal) microkit_notify_delayed(RX_CH);
         else if (signal_cap != BASE_OUTPUT_NOTIFICATION_CAP + RX_CH) microkit_notify(RX_CH);
     }
 
-    if (notify_tx && net_require_signal_active(&state.tx_queue)) {
-        net_cancel_signal_active(&state.tx_queue);
+    if (notify_tx // && net_require_signal_active(&state.tx_queue)
+        ) {
+        // net_cancel_signal_active(&state.tx_queue);
         notify_tx = false;
         if (!have_signal) microkit_notify_delayed(TX_CH);
         else if (signal_cap != BASE_OUTPUT_NOTIFICATION_CAP + TX_CH) microkit_notify(TX_CH);
@@ -343,15 +352,17 @@ void notified(microkit_channel ch)
             break;
     }
     
-    if (notify_rx && net_require_signal_free(&state.rx_queue)) {
-        net_cancel_signal_free(&state.rx_queue);
+    if (notify_rx // && net_require_signal_free(&state.rx_queue)
+        ) {
+        // net_cancel_signal_free(&state.rx_queue);
         notify_rx = false;
         if (!have_signal) microkit_notify_delayed(RX_CH);
         else if (signal_cap != BASE_OUTPUT_NOTIFICATION_CAP + RX_CH) microkit_notify(RX_CH);
     }
 
-    if (notify_tx && net_require_signal_active(&state.tx_queue)) {
-        net_cancel_signal_active(&state.tx_queue);
+    if (notify_tx // && net_require_signal_active(&state.tx_queue)
+        ) {
+        // net_cancel_signal_active(&state.tx_queue);
         notify_tx = false;
         if (!have_signal) microkit_notify_delayed(TX_CH);
         else if (signal_cap != BASE_OUTPUT_NOTIFICATION_CAP + TX_CH) microkit_notify(TX_CH);

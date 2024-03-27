@@ -129,8 +129,8 @@ static int arp_reply(const uint8_t ethsrc_addr[ETH_HWADDR_LEN],
 void receive(void)
 {
     bool transmitted = false;
-    bool reprocess = true;
-    while (reprocess) {
+    // bool reprocess = true;
+    // while (reprocess) {
         while (!net_queue_empty_active(&rx_queue)) {
             net_buff_desc_t buffer;
             int err = net_dequeue_active(&rx_queue, &buffer);
@@ -158,17 +158,18 @@ void receive(void)
             assert(!err);
         }
 
-        net_request_signal_active(&rx_queue);
-        reprocess = false;
+    //     net_request_signal_active(&rx_queue);
+    //     reprocess = false;
 
-        if (!net_queue_empty_active(&rx_queue)) {
-            net_cancel_signal_active(&rx_queue);
-            reprocess = true;
-        }
-    }
+    //     if (!net_queue_empty_active(&rx_queue)) {
+    //         net_cancel_signal_active(&rx_queue);
+    //         reprocess = true;
+    //     }
+    // }
 
-    if (transmitted && net_require_signal_active(&tx_queue)) {
-        net_cancel_signal_active(&tx_queue);
+    if (transmitted // && net_require_signal_active(&tx_queue)
+        ) {
+        // net_cancel_signal_active(&tx_queue);
         microkit_notify_delayed(TX_CH);
     }
 }
@@ -180,6 +181,7 @@ void notified(microkit_channel ch)
 
 seL4_MessageInfo_t protected(microkit_channel ch, microkit_msginfo msginfo)
 {
+    sddf_dprintf("arp got ppcalled\n");
     int client = ch - CLIENT_CH;
     if (client >= NUM_ARP_CLIENTS || client < 0) {
         sddf_dprintf("ARP|LOG: PPC from unkown client %d\n", client);

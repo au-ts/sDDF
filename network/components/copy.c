@@ -24,9 +24,9 @@ uintptr_t cli_buffer_data_region;
 void rx_return(void)
 {
     bool enqueued = false;
-    bool reprocess = true;
+    // bool reprocess = true;
 
-    while (reprocess) {
+    // while (reprocess) {
         while (!net_queue_empty_active(&rx_queue_virt) && !net_queue_empty_free(&rx_queue_cli)) {
             net_buff_desc_t cli_buffer, virt_buffer;
             int err = net_dequeue_free(&rx_queue_cli, &cli_buffer);
@@ -56,28 +56,30 @@ void rx_return(void)
             enqueued = true;
         }
         
-        net_request_signal_active(&rx_queue_virt);
+        // net_request_signal_active(&rx_queue_virt);
 
         /* Only request signal from client if incoming packets from multiplexer are awaiting free buffers */
-        if (!net_queue_empty_active(&rx_queue_virt)) net_request_signal_free(&rx_queue_cli);
-        else net_cancel_signal_free(&rx_queue_cli);
+        // if (!net_queue_empty_active(&rx_queue_virt)) net_request_signal_free(&rx_queue_cli);
+        // else net_cancel_signal_free(&rx_queue_cli);
 
-        reprocess = false;
+        // reprocess = false;
         
-        if (!net_queue_empty_active(&rx_queue_virt) && !net_queue_empty_free(&rx_queue_cli)) {
-            net_cancel_signal_active(&rx_queue_virt);
-            net_cancel_signal_free(&rx_queue_cli);
-            reprocess = true;
-        }
-    }
+        // if (!net_queue_empty_active(&rx_queue_virt) && !net_queue_empty_free(&rx_queue_cli)) {
+        //     net_cancel_signal_active(&rx_queue_virt);
+        //     net_cancel_signal_free(&rx_queue_cli);
+        //     reprocess = true;
+        // }
+    // }
 
-    if (enqueued && net_require_signal_active(&rx_queue_cli)) {
-        net_cancel_signal_active(&rx_queue_cli);
+    if (enqueued // && net_require_signal_active(&rx_queue_cli)
+        ) {
+        // net_cancel_signal_active(&rx_queue_cli);
         microkit_notify(CLIENT_CH);
     }
 
-    if (enqueued && net_require_signal_free(&rx_queue_virt)) {
-        net_cancel_signal_free(&rx_queue_virt);
+    if (enqueued // && net_require_signal_free(&rx_queue_virt)
+        ) {
+        // net_cancel_signal_free(&rx_queue_virt);
         microkit_notify_delayed(VIRT_RX_CH);
     }
 }

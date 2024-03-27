@@ -91,8 +91,8 @@ static inline void enable_irqs(uint32_t mask)
 
 static void rx_provide(void)
 {
-    bool reprocess = true;
-    while (reprocess) {
+    // bool reprocess = true;
+    // while (reprocess) {
         while (!hw_ring_full(&rx, RX_COUNT) && !net_queue_empty_free(&rx_queue)) {
             net_buff_desc_t buffer;
             int err = net_dequeue_free(&rx_queue, &buffer);
@@ -105,16 +105,16 @@ static void rx_provide(void)
             rx.tail = (rx.tail + 1) % RX_COUNT;
         }
 
-        /* Only request a notification from virtualiser if HW ring not full */
-        if (!hw_ring_full(&rx, RX_COUNT)) net_request_signal_free(&rx_queue);
-        else net_cancel_signal_free(&rx_queue);
-        reprocess = false;
+        // Only request a notification from virtualiser if HW ring not full
+        // if (!hw_ring_full(&rx, RX_COUNT)) net_request_signal_free(&rx_queue);
+        // else net_cancel_signal_free(&rx_queue);
+        // reprocess = false;
 
-        if (!net_queue_empty_free(&rx_queue) && !hw_ring_full(&rx, RX_COUNT)) {
-            net_cancel_signal_free(&rx_queue);
-            reprocess = true;
-        }
-    }
+    //     if (!net_queue_empty_free(&rx_queue) && !hw_ring_full(&rx, RX_COUNT)) {
+    //         net_cancel_signal_free(&rx_queue);
+    //         reprocess = true;
+    //     }
+    // }
 
     if (!(hw_ring_empty(&rx, RX_COUNT))) {
         /* Ensure rx IRQs are enabled */
@@ -129,6 +129,7 @@ static void rx_return(void)
 {
     bool packets_transferred = false;
     while (!hw_ring_empty(&rx, RX_COUNT)) {
+        // sddf_dprintf("driver: returning rx buffer\n");
         /* If buffer slot is still empty, we have processed all packets the device has filled */
         volatile struct descriptor *d = &(rx.descr[rx.head]);
         if (d->stat & RXD_EMPTY) break;
@@ -142,17 +143,19 @@ static void rx_return(void)
         rx.head = (rx.head + 1) % RX_COUNT;
     }
 
-    if (packets_transferred && net_require_signal_active(&rx_queue)) {
-        net_cancel_signal_active(&rx_queue);
+    if (packets_transferred // && net_require_signal_active(&rx_queue)
+        ) {
+        // net_cancel_signal_active(&rx_queue);
         microkit_notify(RX_CH);
     }
 }
 
 static void tx_provide(void)
 {
-    bool reprocess = true;
-    while (reprocess) {
+    // bool reprocess = true;
+    // while (reprocess) {
         while (!(hw_ring_full(&tx, TX_COUNT)) && !net_queue_empty_active(&tx_queue)) {
+            // sddf_dprintf("driver: got tx buffer\n")
             net_buff_desc_t buffer;
             int err = net_dequeue_active(&tx_queue, &buffer);
             assert(!err);
@@ -166,20 +169,22 @@ static void tx_provide(void)
             if (!(eth->tdar & TDAR_TDAR)) eth->tdar = TDAR_TDAR;
         }
     
-        net_request_signal_active(&tx_queue);
-        reprocess = false;
+        // net_request_signal_active(&tx_queue);
+        // reprocess = false;
 
-        if (!hw_ring_full(&tx, TX_COUNT) && !net_queue_empty_active(&tx_queue)) {
-            net_cancel_signal_active(&tx_queue);
-            reprocess = true;
-        }
-    }
+        // if (!hw_ring_full(&tx, TX_COUNT) &&  !net_queue_empty_active(&tx_queue)
+        //     ) {
+            // net_cancel_signal_active(&tx_queue);
+            // reprocess = true;
+        // }
+    // }
 }
 
 static void tx_return(void)
 {
     bool enqueued = false;
     while (!hw_ring_empty(&tx, TX_COUNT)) {
+        // sddf_dprintf("driver: returning tx buffer\n");
         /* Ensure that this buffer has been sent by the device */
         volatile struct descriptor *d = &(tx.descr[tx.head]);
         if (d->stat & TXD_READY) break;
@@ -194,8 +199,9 @@ static void tx_return(void)
         enqueued = true;
     }
 
-    if (enqueued && net_require_signal_free(&tx_queue)) {
-        net_cancel_signal_free(&tx_queue);
+    if (enqueued // && net_require_signal_free(&tx_queue)
+        ) {
+        // net_cancel_signal_free(&tx_queue);
         microkit_notify(TX_CH);
     }
 }

@@ -51,9 +51,9 @@ int get_client(struct ethernet_header * buffer)
 
 void rx_return(void)
 {
-    bool reprocess = true;
+    // bool reprocess = true;
     bool notify_clients[NUM_CLIENTS] = {false};
-    while (reprocess) {
+    // while (reprocess) {
         while (!net_queue_empty_active(&state.rx_queue_drv)) {
             net_buff_desc_t buffer;
             int err = net_dequeue_active(&state.rx_queue_drv, &buffer);
@@ -75,18 +75,19 @@ void rx_return(void)
             }
         }
 
-        net_request_signal_active(&state.rx_queue_drv);
-        reprocess = false;
+    //     net_request_signal_active(&state.rx_queue_drv);
+    //     reprocess = false;
 
-        if (!net_queue_empty_active(&state.rx_queue_drv)) {
-            net_cancel_signal_active(&state.rx_queue_drv);
-            reprocess = true;
-        }
-    }
+    //     if (!net_queue_empty_active(&state.rx_queue_drv)) {
+    //         net_cancel_signal_active(&state.rx_queue_drv);
+    //         reprocess = true;
+    //     }
+    // }
 
     for (int client = 0; client < NUM_CLIENTS; client++) {
-        if (notify_clients[client] && net_require_signal_active(&state.rx_queue_clients[client])) {
-            net_cancel_signal_active(&state.rx_queue_clients[client]);
+        if (notify_clients[client] // && net_require_signal_active(&state.rx_queue_clients[client])
+            ) {
+            // net_cancel_signal_active(&state.rx_queue_clients[client]);
             microkit_notify(client + CLIENT_CH);
         }
     }    
@@ -95,8 +96,8 @@ void rx_return(void)
 void rx_provide(void)
 {
     for (int client = 0; client < NUM_CLIENTS; client++) {
-        bool reprocess = true;
-        while (reprocess) {
+        // bool reprocess = true;
+        // while (reprocess) {
             while (!net_queue_empty_free(&state.rx_queue_clients[client])) {
                 net_buff_desc_t buffer;
                 int err = net_dequeue_free(&state.rx_queue_clients[client], &buffer);
@@ -110,18 +111,19 @@ void rx_provide(void)
                 notify_drv = true;
             }
 
-            net_request_signal_free(&state.rx_queue_clients[client]);
-            reprocess = false;
+        //     net_request_signal_free(&state.rx_queue_clients[client]);
+        //     reprocess = false;
 
-            if (!net_queue_empty_free(&state.rx_queue_clients[client])) {
-                net_cancel_signal_free(&state.rx_queue_clients[client]);
-                reprocess = true;
-            }
-        }
+        //     if (!net_queue_empty_free(&state.rx_queue_clients[client])) {
+        //         net_cancel_signal_free(&state.rx_queue_clients[client]);
+        //         reprocess = true;
+        //     }
+        // }
     }
 
-    if (notify_drv && net_require_signal_free(&state.rx_queue_drv)) {
-        net_cancel_signal_free(&state.rx_queue_drv);
+    if (notify_drv // && net_require_signal_free(&state.rx_queue_drv)
+        ) {
+        // net_cancel_signal_free(&state.rx_queue_drv);
         microkit_notify_delayed(DRIVER_CH);
     }
 }
