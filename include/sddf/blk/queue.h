@@ -12,7 +12,7 @@
 #include <sddf/util/fence.h>
 
 /* Size of a single block to be transferred */
-#define BLK_BLOCK_SIZE 4096
+#define BLK_TRANSFER_SIZE 4096
 /* Maximum number of slots in the request queue. Can be configured. */
 #define BLK_REQ_QUEUE_SIZE 1024
 /* Maximum number of slots in the response queue. Can be configured. */
@@ -24,10 +24,11 @@ typedef struct blk_storage_info {
     char serial_number[BLK_MAX_SERIAL_NUMBER + 1]; 
     bool read_only;
     bool ready; /* true if component closer to driver is ready */
-    uint16_t blocksize; /* optimal block size, as a multiple of BLK_BLOCK_SIZE */
+    uint16_t sector_size; /* size of a sector */
+    uint16_t block_size; /* optimal block size, as a multiple of BLK_TRANSFER_SIZE */
     uint16_t queue_depth;
     uint16_t cylinders, heads, blocks; /* geometry to guide FS layout */
-    uint64_t size; /* number of BLK_BLOCK_SIZE units */
+    uint64_t size; /* number of BLK_TRANSFER_SIZE units */
 } blk_storage_info_t;
 
 /* Request code for block */
@@ -180,8 +181,6 @@ static inline int blk_resp_queue_size(blk_queue_handle_t *h)
  * Enqueue an element into the request queue.
  *
  * @param h queue handle containing request queue to enqueue to.
- * @param code request code.
- * @param addr encoded dma address of data to read/write.
  * @param block_number block number to read/write to.
  * @param count the number of blocks to read/write
  * @param id request ID to identify this request.
@@ -217,8 +216,6 @@ static inline int blk_enqueue_req(blk_queue_handle_t *h,
  *
  * @param h queue handle containing response queue to enqueue to.
  * @param status response status.
- * @param addr pointer to encoded dma address of data.
- * @param count number of blocks allocated for corresponding request
  * @param success_count number of blocks successfully read/written
  * @param id request ID to identify which request the response is for.
  *
@@ -283,8 +280,6 @@ static inline int blk_dequeue_req(blk_queue_handle_t *h,
  *
  * @param h queue handle containing response queue to dequeue from.
  * @param status pointer to response status.
- * @param addr pointer to encoded dma address of data.
- * @param count pointer to number of blocks allocated for corresponding request
  * @param success_count pointer to number of blocks successfully read/written
  * @param id pointer to stoqueue request ID to idenfity which request this response is for.
  * @return -1 when response queue is empty, 0 on success.
