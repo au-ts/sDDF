@@ -114,13 +114,13 @@ static void partitions_init() {
     ((blk_storage_info_t *)blk_config)->sector_size = ((blk_storage_info_t *)blk_config_driver)->sector_size;
     ((blk_storage_info_t *)blk_config)->block_size = ((blk_storage_info_t *)blk_config_driver)->block_size;
     ((blk_storage_info_t *)blk_config)->size = clients[0].sectors / (BLK_TRANSFER_SIZE / MBR_SECTOR_SIZE);
-    ((blk_storage_info_t *)blk_config)->read_only = ((blk_storage_info_t *)blk_config_driver)->read_only;
+    ((blk_storage_info_t *)blk_config)->read_only = false;
     ((blk_storage_info_t *)blk_config)->ready = true;
 #if BLK_NUM_CLIENTS > 1
     ((blk_storage_info_t *)blk_config2)->sector_size = ((blk_storage_info_t *)blk_config_driver)->sector_size;
     ((blk_storage_info_t *)blk_config2)->block_size = ((blk_storage_info_t *)blk_config_driver)->block_size;
     ((blk_storage_info_t *)blk_config2)->size = clients[1].sectors / (BLK_TRANSFER_SIZE / MBR_SECTOR_SIZE);
-    ((blk_storage_info_t *)blk_config2)->read_only = ((blk_storage_info_t *)blk_config_driver)->read_only;
+    ((blk_storage_info_t *)blk_config2)->read_only = false;
     ((blk_storage_info_t *)blk_config2)->ready = true;
 #endif
 }
