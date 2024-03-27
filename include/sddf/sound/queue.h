@@ -39,7 +39,7 @@ typedef struct sound_pcm_set_params {
 typedef struct sound_cmd {
     sound_cmd_code_t code;
     uint32_t cookie;
-uint32_t stream_id;
+    uint32_t stream_id;
     union {
         // Set on TAKE request
         sound_pcm_set_params_t set_params;

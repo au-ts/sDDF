@@ -116,6 +116,9 @@ static int notified_by_client(int client) {
             continue;
         }
 
+        // Write PCM data to RAM
+        microkit_arm_vspace_data_clean(pcm.addr, pcm.addr + pcm.len);
+
         if (sound_enqueue_pcm(driver_rings.pcm_req, &pcm) != 0) {
             microkit_dbg_puts("SND VIRT|ERR: Failed to enqueue PCM data\n");
             return -1;
@@ -177,6 +180,9 @@ int notified_by_driver(void) {
             microkit_dbg_puts("SND VIRT|ERR: invalid owner id\n");
             continue;
         }
+
+        // Cache is dirty as device may have written to buffer
+        microkit_arm_vspace_data_invalidate(pcm.addr, pcm.addr + pcm.len);
         
         if (sound_enqueue_pcm(clients[owner].pcm_res, &pcm) != 0) {
             microkit_dbg_puts("SND VIRT|ERR: Failed to enqueue PCM data\n");
