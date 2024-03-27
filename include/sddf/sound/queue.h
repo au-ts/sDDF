@@ -11,200 +11,193 @@
 #include <stdbool.h>
 #include <sddf/sound/sound.h>
 
-#define SDDF_SND_NUM_BUFFERS 512
-#define SDDF_SND_PCM_BUFFER_SIZE 4096
+#define SOUND_NUM_BUFFERS 512
+#define SOUND_PCM_BUFFER_SIZE 4096
 
 typedef enum {
-    SDDF_SND_CMD_PCM_TAKE,
-    SDDF_SND_CMD_PCM_PREPARE,
-    SDDF_SND_CMD_PCM_RELEASE,
-    SDDF_SND_CMD_PCM_START,
-    SDDF_SND_CMD_PCM_STOP,
-} sddf_snd_command_code_t;
+    SOUND_CMD_TAKE,
+    SOUND_CMD_PREPARE,
+    SOUND_CMD_RELEASE,
+    SOUND_CMD_START,
+    SOUND_CMD_STOP,
+} sound_cmd_code_t;
 
 typedef enum {
-    SDDF_SND_EVT_PCM_PERIOD_ELAPSED,
-    SDDF_SND_EVT_PCM_XRUN,
-} sddf_snd_event_code_t;
+    SOUND_S_OK = 0,
+    SOUND_S_BAD_MSG,
+    SOUND_S_NOT_SUPP,
+    SOUND_S_IO_ERR,
+    SOUND_S_BUSY,
+} sound_status_t;
 
-typedef enum {
-    SDDF_SND_S_OK = 0,
-    SDDF_SND_S_BAD_MSG,
-    SDDF_SND_S_NOT_SUPP,
-    SDDF_SND_S_IO_ERR,
-    SDDF_SND_S_BUSY,
-} sddf_snd_status_code_t;
-
-typedef struct sddf_snd_pcm_set_params {
+typedef struct sound_pcm_set_params {
     uint8_t channels;
     uint8_t format;
     uint8_t rate;
-} sddf_snd_pcm_set_params_t;
+} sound_pcm_set_params_t;
 
-typedef struct sddf_snd_cmd {
-    sddf_snd_command_code_t code;
+typedef struct sound_cmd {
+    sound_cmd_code_t code;
     uint32_t cookie;
-    uint32_t stream_id;
+uint32_t stream_id;
     union {
         // Set on TAKE request
-        sddf_snd_pcm_set_params_t set_params;
+        sound_pcm_set_params_t set_params;
         // Set on all responses
-        sddf_snd_status_code_t status;
+        sound_status_t status;
     };
-} sddf_snd_cmd_t;
+} sound_cmd_t;
 
-typedef struct sddf_snd_pcm_data {
+typedef struct sound_pcm {
     uint32_t cookie;
     uint32_t stream_id;
     uintptr_t addr;
     unsigned int len;
     // Only used in responses.
-    sddf_snd_status_code_t status;
+    sound_status_t status;
     uint32_t latency_bytes;
-} sddf_snd_pcm_data_t;
+} sound_pcm_t;
 
 // Eventually this could be moved into its own library
-typedef struct sddf_snd_ring_state {
+typedef struct sound_queue_state {
     uint32_t write_idx;
     uint32_t read_idx;
     uint32_t size;
-} sddf_snd_ring_state_t;
+} sound_queue_state_t;
 
-typedef struct sddf_snd_cmd_ring_t {
-    sddf_snd_ring_state_t state;
-    sddf_snd_cmd_t buffers[SDDF_SND_NUM_BUFFERS];
-} sddf_snd_cmd_ring_t;
+typedef struct sound_cmd_queue_t {
+    sound_queue_state_t state;
+    sound_cmd_t buffers[SOUND_NUM_BUFFERS];
+} sound_cmd_queue_t;
 
-typedef struct sddf_snd_pcm_data_ring {
-    sddf_snd_ring_state_t state;
-    sddf_snd_pcm_data_t buffers[SDDF_SND_NUM_BUFFERS];
-} sddf_snd_pcm_data_ring_t;
+typedef struct sound_pcm_queue {
+    sound_queue_state_t state;
+    sound_pcm_t buffers[SOUND_NUM_BUFFERS];
+} sound_pcm_queue_t;
 
-typedef struct sddf_snd_rings {
-    sddf_snd_cmd_ring_t *cmd_req;
-    sddf_snd_cmd_ring_t *cmd_res;
+typedef struct sound_queues {
+    sound_cmd_queue_t *cmd_req;
+    sound_cmd_queue_t *cmd_res;
 
-    sddf_snd_pcm_data_ring_t *pcm_req;
-    sddf_snd_pcm_data_ring_t *pcm_res;
-} sddf_snd_rings_t;
+    sound_pcm_queue_t *pcm_req;
+    sound_pcm_queue_t *pcm_res;
+} sound_queues_t;
 
-typedef struct sddf_snd_state {
-    sddf_snd_shared_state_t *shared_state;
-    sddf_snd_rings_t rings;
-} sddf_snd_state_t;
+typedef struct sound_state {
+    sound_shared_state_t *shared_state;
+    sound_queues_t queues;
+} sound_state_t;
 
 /**
- * Initialise a ring. Only one side needs to call this function.
+ * Initialise a queue. Only one side needs to call this function.
  *
- * @param ring_state 
- * @param buffer_count number of buffers in the ring
+ * @param queue_state 
+ * @param buffer_count number of buffers in the queue
  */
-void sddf_snd_ring_init(sddf_snd_ring_state_t *ring_state, uint32_t buffer_count);
+void sound_queue_init(sound_queue_state_t *queue_state, uint32_t buffer_count);
 
 /**
- * Initialises all rings to maximum capacity
+ * Initialises all queues to maximum capacity
  */
-void sddf_snd_rings_init_default(sddf_snd_rings_t *rings);
+void sound_queues_init_default(sound_queues_t *queues);
 
 /**
- * Check if the command ring buffer is empty.
+ * Check if the command queue buffer is empty.
  *
- * @param ring_handle ring handle containing command ring buffer.
+ * @param queue_handle queue handle containing command queue buffer.
  *
  * @return true indicates the buffer is empty, false otherwise.
  */
-bool sddf_snd_ring_empty(sddf_snd_ring_state_t *ring_state);
+bool sound_queue_empty(sound_queue_state_t *queue_state);
 
 /**
- * Check if the command ring buffer is full.
- * Leaves a gap of one buffer before we consider the ring full.
+ * Check if the command queue buffer is full.
+ * Leaves a gap of one buffer before we consider the queue full.
  *
- * @param ring_handle ring handle containing command ring buffer.
+ * @param queue_handle queue handle containing command queue buffer.
  *
- * @return true indicates the command ring buffer is full, false otherwise.
+ * @return true indicates the command queue buffer is full, false otherwise.
  */
-bool sddf_snd_ring_full(sddf_snd_ring_state_t *ring_state);
+bool sound_queue_full(sound_queue_state_t *queue_state);
 
 /**
- * Get the number of elements in a command ring buffer.
+ * Get the number of elements in a command queue buffer.
  *
- * @param ring_handle ring handle containing command and response ring buffers.
+ * @param queue_handle queue handle containing command and response queue buffers.
  *
- * @return number of elements in the ring buffer.
+ * @return number of elements in the queue buffer.
  */
-int sddf_snd_ring_size(sddf_snd_ring_state_t *ring_state);
+int sound_queue_size(sound_queue_state_t *queue_state);
 
 /**
- * Enqueue a command into the command ring buffer.
+ * Enqueue a command into the command queue buffer.
  *
- * @param ring Command ring to enqueue to
+ * @param queue Command queue to enqueue to
  * @param command Reference to command to enqueue
  *
- * @return -1 when command ring is full, 0 on success.
+ * @return -1 when command queue is full, 0 on success.
  */
-int sddf_snd_enqueue_cmd(sddf_snd_cmd_ring_t *ring, const sddf_snd_cmd_t *command);
+int sound_enqueue_cmd(sound_cmd_queue_t *queue, const sound_cmd_t *command);
 
 /**
- * Enqueue a PCM data element into the PCM data ring buffer.
+ * Enqueue a PCM data element into the PCM data queue buffer.
  *
- * @param ring PCM data ring to enqueue to.
+ * @param queue PCM data queue to enqueue to.
  * @param pcm PCM data to enqueue.
  *
- * @return -1 when ring is full, 0 on success.
+ * @return -1 when queue is full, 0 on success.
  */
-int sddf_snd_enqueue_pcm_data(sddf_snd_pcm_data_ring_t *ring, sddf_snd_pcm_data_t *pcm);
+int sound_enqueue_pcm(sound_pcm_queue_t *queue, sound_pcm_t *pcm);
 
 /**
- * Dequeue an element from a command ring buffer.
+ * Dequeue an element from a command queue buffer.
  *
- * @param ring The command ring to dequeue from.
+ * @param queue The command queue to dequeue from.
  * @param out Pointer to write command to.
  *
- * @return -1 when command ring is empty, 0 on success.
+ * @return -1 when command queue is empty, 0 on success.
  */
-int sddf_snd_dequeue_cmd(sddf_snd_cmd_ring_t *ring, sddf_snd_cmd_t *out);
+int sound_dequeue_cmd(sound_cmd_queue_t *queue, sound_cmd_t *out);
 
 /**
- * Dequeue an element from a pcm data ring buffer.
+ * Dequeue an element from a pcm data queue buffer.
  *
- * @param ring The pcm data ring to dequeue from.
+ * @param queue The pcm data queue to dequeue from.
  * @param out Pointer to write pcm data to.
  *
- * @return -1 when command ring is empty, 0 on success.
+ * @return -1 when command queue is empty, 0 on success.
  */
-int sddf_snd_dequeue_pcm_data(sddf_snd_pcm_data_ring_t *ring, sddf_snd_pcm_data_t *out);
+int sound_dequeue_pcm(sound_pcm_queue_t *queue, sound_pcm_t *out);
 
 /**
- * Dequeue an element from a ring buffer without getting its data.
+ * Dequeue an element from a queue buffer without getting its data.
  *
- * @param ring The pcm data ring to dequeue from.
+ * @param queue The pcm data queue to dequeue from.
  *
- * @return -1 when command ring is empty, 0 on success.
+ * @return -1 when command queue is empty, 0 on success.
  */
-int sddf_snd_ring_dequeue(sddf_snd_ring_state_t *ring);
+int sound_queue_dequeue(sound_queue_state_t *queue);
 
 /**
- * Get a reference to the head of a command ring buffer.
+ * Get a reference to the head of a command queue buffer.
  *
- * @param ring Ring buffer
+ * @param queue queue buffer
  *
  * @return Command
  */
-sddf_snd_cmd_t *sddf_snd_cmd_ring_front(sddf_snd_cmd_ring_t *ring);
+sound_cmd_t *sound_cmd_queue_front(sound_cmd_queue_t *queue);
 
 /**
  * Get a reference to the head of a PCM data queue.
  *
- * @param ring PCM data ring
+ * @param queue PCM data queue
  *
  * @return PCM data struct
  */
-sddf_snd_pcm_data_t *sddf_snd_pcm_data_front(sddf_snd_pcm_data_ring_t *ring);
+sound_pcm_t *sound_pcm_front(sound_pcm_queue_t *queue);
 
-const char *sddf_snd_command_code_str(sddf_snd_command_code_t code);
+const char *sound_command_code_str(sound_cmd_code_t code);
 
-const char *sddf_snd_status_code_str(sddf_snd_status_code_t code);
+const char *sound_status_code_str(sound_status_t code);
 
-const char *sddf_snd_event_code_str(sddf_snd_event_code_t code);
-
-const char *sddf_snd_pcm_fmt_str(sddf_snd_pcm_fmt_t fmt);
+const char *sound_pcm_fmt_str(sound_pcm_fmt_t fmt);
