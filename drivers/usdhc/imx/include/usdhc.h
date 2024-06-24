@@ -62,6 +62,7 @@ typedef volatile struct imx_usdhc_regs imx_usdhc_regs_t;
 /* PRES_STATE Bits. See 10.3.7.1.11 */
 #define USDHC_PRES_STATE_CIHB  BIT(0)  /* Command inhibit (CMD) */
 #define USDHC_PRES_STATE_CDIHB BIT(1)  /* Command inhibit (DATA) */
+#define USDHC_PRES_STATE_DLA   BIT(2)  /* Data line active */
 #define USDHC_PRES_STATE_SDSTB BIT(3)  /* SD clock stable */
 #define USDHC_PRES_STATE_CINST BIT(16) /* Card inserted. */
 
@@ -83,6 +84,7 @@ typedef volatile struct imx_usdhc_regs imx_usdhc_regs_t;
 #define USDHC_INT_STATUS_CCE  BIT(17) /* Command CRC error. */
 #define USDHC_INT_STATUS_CEBE BIT(18) /* Command end bit error */
 #define USDHC_INT_STATUS_CIE  BIT(19) /* Command index error. */
+#define USDHC_INT_STATUS_DTOE BIT(20) /* Data timeout error. */
 
 /* INT_STATUS_EN Bits. See 10.3.7.1.15 */
 #define USDHC_INT_STATUS_EN_CCSEN    BIT(0)   /* Command complete status enable */
@@ -135,6 +137,7 @@ typedef volatile struct imx_usdhc_regs imx_usdhc_regs_t;
 /* MIX_CTLR Bits. See 10.3.7.1.20 */
 #define USDHC_MIX_CTRL_DMAEN  BIT(0)  /* DMA enable */
 #define USDHC_MIX_CTLR_AC12EN BIT(2)  /* Auto CMD12 enable */
+#define USDHC_MIX_CTRL_DTDSEL BIT(4)  /* Data transfer direction select (1 = read) */
 #define USDHC_MIX_CTRL_MSBSEL BIT(5)  /* Mult / Single block select */
 
 /* VEND_SPEC Bits. See 10.3.7.1.29 */
@@ -176,6 +179,7 @@ typedef struct {
 #define SD_CMD55_APP_CMD           _SD_CMD_DEF(55, RespType_R1)
 
 #define SD_ACMD41_SD_SEND_OP_COND  _SD_ACMD_DEF(41, RespType_R3)
+#define SD_ACMD51_SEND_SCR         _SD_ACMD_DEF(51, RespType_R1)
 
 
 /* See Section 4.10.1 / Table 4-42 definitions */

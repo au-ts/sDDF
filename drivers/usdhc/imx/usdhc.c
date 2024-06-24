@@ -11,6 +11,11 @@ uintptr_t usdhc_dma_buffer_paddr;
 
 #define USDHC_INT_CHANNEL 1
 
+static struct {
+    uint16_t rca;
+    bool ccs; /* card capacity status; false = SDSC, true = SDHC/SDXC. TODO: card type*/
+} card_info = { .rca = 0 };
+
 void usdhc_debug(void) {
     sddf_printf("uSDHC: PRES_STATE: %u, PROT_CTRL: %u, SYS_CTRL: %u, MIX_CTRL: %u, INT_STATUS: %u, INT_STATUS_EN: %u, INT_SIGNAL_EN: %u, VEND_SPEC: %u, VEND_SPEC2: %u, BLK_ATT: %u\n", usdhc_regs->pres_state, usdhc_regs->prot_ctrl, usdhc_regs->sys_ctrl, usdhc_regs->mix_ctrl, usdhc_regs->int_status, usdhc_regs->int_status_en, usdhc_regs->int_signal_en, usdhc_regs->vend_spec, usdhc_regs->vend_spec2, usdhc_regs->blk_att);
     sddf_printf("uSDHC: CMD_RSP0: %u, CMD_RSP1: %u, CMD_RSP2: %u, CMD_RSP3: %u\n", usdhc_regs->cmd_rsp0, usdhc_regs->cmd_rsp1, usdhc_regs->cmd_rsp2, usdhc_regs->cmd_rsp3);
@@ -55,7 +60,8 @@ uint32_t get_command_xfr_typ(sd_cmd_t cmd) {
     if (cmd.data_present) {
         sddf_printf("command has data present\n");
         cmd_xfr_typ |= USDHC_CMD_XFR_TYP_DPSEL;
-        usdhc_regs->mix_ctrl |= USDHC_MIX_CTRL_DMAEN | USDHC_MIX_CTLR_AC12EN;
+        // disable DMA for now...
+        // usdhc_regs->mix_ctrl |= USDHC_MIX_CTRL_DMAEN | USDHC_MIX_CTLR_AC12EN;
     }
 
     /* Ref: Table 10-42.
@@ -86,9 +92,6 @@ uint32_t get_command_xfr_typ(sd_cmd_t cmd) {
         cmd_xfr_typ |= USHDC_CMD_XFR_TYP_CICEN;
         cmd_xfr_typ |= USDHC_CMD_XFR_TYP_CCCEN;
         cmd_xfr_typ |= (0b11 << USDHC_CMD_XFR_TYP_RSPTYP_SHIFT);
-
-        // Also set DPSEl
-        cmd_xfr_typ |= USDHC_CMD_XFR_TYP_DPSEL;
     } else {
         sddf_printf("unknown rtype!\n");
     }
@@ -110,11 +113,15 @@ uint32_t get_command_xfr_typ(sd_cmd_t cmd) {
  */
 bool usdhc_send_command_poll(sd_cmd_t cmd, uint32_t cmd_arg)
 {
+    sddf_printf("running cmd %u (is app_cmd: %d) with arg %u\n", cmd.cmd_index, cmd.is_app_cmd, cmd_arg);
+
     /* See description of App-Specific commands in §4.3.9 */
     if (cmd.is_app_cmd) {
-        bool success = usdhc_send_command_poll(SD_CMD55_APP_CMD, 0x0);
+        // [31:15] RCA!
+        // note this is implicitly zero.first tim
+        bool success = usdhc_send_command_poll(SD_CMD55_APP_CMD, (uint32_t)card_info.rca << 16);
         if (!success) {
-            sddf_printf("couldn't send CMD55_APP_CMD");
+            sddf_printf("couldn't send CMD55_APP_CMD\n");
             return false;
         }
 
@@ -133,18 +140,22 @@ bool usdhc_send_command_poll(sd_cmd_t cmd, uint32_t cmd_arg)
     // before writing to this register.
     if (usdhc_regs->pres_state & (USDHC_PRES_STATE_CIHB | USDHC_PRES_STATE_CDIHB)) {
         sddf_printf("waiting for command inhibit fields to clear... pres: %u, int_status: %u\n", usdhc_regs->pres_state, usdhc_regs->int_status);
-        // TODO: how do properly reset these after a command timeout, because i'm not at the moment...
-        // while (usdhc_regs->pres_state & (USDHC_PRES_STATE_CIHB | USDHC_PRES_STATE_CDIHB));
+        while (usdhc_regs->pres_state & (USDHC_PRES_STATE_CIHB | USDHC_PRES_STATE_CDIHB));
+    }
+
+    if (usdhc_regs->pres_state & USDHC_PRES_STATE_DLA) {
+        sddf_printf("waiting for data line active to clear...\n");
+        while (usdhc_regs->pres_state & USDHC_PRES_STATE_DLA);
     }
 
     uint32_t cmd_xfr_typ = get_command_xfr_typ(cmd);
+    sddf_printf("has cmd_xfr_typ: %u\n", cmd_xfr_typ);
 
     // if (iinternal DMA)
     // if (multi-block transfer)
 
     // TODO: app specific commands (4.3.9 part 1 physical layer spec)
 
-    sddf_printf("running cmd %u with arg %u, xfr_typ: %u\n", cmd.cmd_index, cmd_arg, cmd_xfr_typ);
     usdhc_mask_interrupts();
     usdhc_regs->cmd_arg = cmd_arg;
     usdhc_regs->cmd_xfr_typ = cmd_xfr_typ;
@@ -172,6 +183,19 @@ bool usdhc_send_command_poll(sd_cmd_t cmd, uint32_t cmd_arg)
         /* command end bit error */
         sddf_printf("command end bit error\n");
         return false;
+    } else if (status & USDHC_INT_STATUS_DTOE) {
+        /* data timeout error */
+        sddf_printf("data timeout error\n");
+        usdhc_debug();
+        return false;
+    }
+
+    // Either of the busy response commands
+    // SDIO 4.9.2 R1b spec: The Host shall check for busy at the response.
+    if (cmd.cmd_response_type == RespType_R1b || cmd.cmd_response_type == RespType_R5b) {
+        sddf_printf("helooooooooooo DAT[0]...\n");
+        usdhc_debug();
+        while (!(usdhc_regs->pres_state & 0x01000000)); // look at status of DATA[0] line..., wait for go low?
     }
 
     /* clear CC bit and all command error bits... */
@@ -208,16 +232,20 @@ void usdhc_setup_clock() {
 
     /* TODO: We assume single data rate mode (DDR_EN of MIX_CTLR = 0) */
     // TODO: do this in a better, generic way.
+    sddf_printf("sys_Ctrl before: %u, ", usdhc_regs->sys_ctrl);
     uint32_t sys_ctrl = usdhc_regs->sys_ctrl;
-    sys_ctrl &= ~(0b111111111111 << 4); // clear bits 4 to 15.
-    sys_ctrl |= BIT(15); // this is 0x80h into SDCLKFS;
-    sys_ctrl |= BIT(4) | BIT(5) | BIT(6) | BIT(7); // divisor = 16.
-    usdhc_regs->sys_ctrl; // TODO: Why not set??? => apparently setting breaks????
+    sys_ctrl &= ~(0xffff << 4); // clear 12 bits 4 to 15.
+    sys_ctrl |= (0x00 << 8); // this is 0x80h into SDCLKFS for 256
+    sys_ctrl |= (0b0011 << 4); // divisor = 16.
+
+    sys_ctrl |= ((0b1100) << 16); // Set the DTOCV to some value
+
+    sddf_printf("after: %u\n", usdhc_regs->sys_ctrl);
+    // usdhc_regs->sys_ctrl = sys_ctrl; // TODO: Why not set??? => apparently setting others breaks?
 
     while (!is_usdhc_clock_stable()); // TODO: ... timeout
 
-
-    // sys_ctrl |= ((0b0000) << 16); // Set DTOCV to the maximum... TOOD: not here...
+    usdhc_regs->pres_state |= USDHC_VEND_SPEC_FRC_SDCLK_ON;
 }
 
 /* Ref: See 10.3.4.2.2 "Reset" */
@@ -312,11 +340,6 @@ void usdhc_setup_iomuxc() {
     *(iomuxc_regs + 0x2AC) |= IOMUX_PAD_CTL_PULLUP; /* USDHC1_WP : IOMUXC_SW_PAD_CTL_PAD_GPIO1_IO07 */
 }
 
-static struct {
-    uint16_t rca;
-    bool ccs; /* card capacity status; false = SDSC, true = SDHC/SDXC. TODO: card type*/
-} card_info;
-
 // TODO: Also see 4.8 Card State Transition Table
 
 /* Figure 4-2 Card Initialization and Identification Flow of
@@ -327,13 +350,6 @@ void shared_sd_setup() {
     // supplied' is set to the host supply voltage and 'check pattern' is set to any 8-bit pattern
     bool success = usdhc_send_command_poll(SD_CMD8_SEND_IF_COND, 0x1AA);
     if (!success) {
-        /* let's assume it's a timeout! (TODO, lol) */
-        usdhc_regs->int_status |= USDHC_INT_STATUS_CTOE;
-
-        /* Flowchart: - Ver2.00 or later SD Memory Card(voltage mismatch)
-                      - or Ver1.X SD Memory Card
-                      - or not SD Memory Card*/
-
         sddf_printf("not hanled\nn");
         return;
 
@@ -437,14 +453,28 @@ The card checks the operational conditions and the HCS bit in the OCR only at th
 void usdhc_read_single_block() {
     bool success;
 
+    // TODO check if data transfer active
+    usdhc_regs->mix_ctrl &= ~USDHC_MIX_CTRL_MSBSEL; /* disable multiple blocks */
+    usdhc_regs->mix_ctrl |= USDHC_MIX_CTRL_DTDSEL; // for reading...
+
     /* [31:16] RCA, [15:0] Stuff bits*/
     /* move the card to the transfer state */
     success = usdhc_send_command_poll(SD_CMD7_CARD_SELECT, ((uint32_t)card_info.rca << 16));
-    /* TODO: R1b description: The Host shall check for busy at the response ??? */
     if (!success) {
         sddf_printf("failed to move card to transfer state\n");
         return;
     }
+
+    // This gives garbage????
+    /* [31:0] stuff bits */
+    // success = usdhc_send_command_poll(SD_ACMD51_SEND_SCR, 0x0);
+    // if (!success) {
+    //     sddf_printf("failed to get scr\n");
+    //     return;
+    // }
+    // sddf_printf("scr: %u\n", usdhc_regs->cmd_rsp0);
+
+    // success = usdhc_send_command_poll((sd_cmd_t){.cmd_index = 6})
 
     uint32_t block_length = 512; /* default, also Table 4-24 says it doesn't change anyway lol */
 
@@ -458,8 +488,6 @@ void usdhc_read_single_block() {
     usdhc_regs->blk_att |= (block_length & USDHC_BLK_ATT_BLKSIZE_MASK) << USDHC_BLK_ATT_BLKSIZE_SHIFT;
     assert(usdhc_regs->blk_att & BIT(16));
 
-    // TODO check if data transfer active
-    usdhc_regs->mix_ctrl &= ~USDHC_MIX_CTRL_MSBSEL; /* disable multiple blocks */
 
     /* 5. disable buffer read ready; set DMA, enable DCMA (done in send_command)  */
     usdhc_regs->int_status_en &= ~USDHC_INT_STATUS_EN_BRRSEN;
@@ -472,13 +500,14 @@ unit). */
     }
 
     // TODO: set elsewhere.
+    usdhc_regs->prot_ctrl &= ~0b110; // clear DTW (2-1)
+    usdhc_regs->prot_ctrl |= 0b010; // set DTW 4 bit mode
     usdhc_regs->ds_addr = usdhc_dma_buffer_paddr;
     sddf_printf("dma system addr (phys): 0x%lx\n", usdhc_dma_buffer_paddr);
     sddf_printf("dma system addr (phys): 0x%x\n", usdhc_regs->ds_addr);
     usdhc_debug();
 
     assert(usdhc_regs->host_ctrl_cap & BIT(22));
-
 
     /* 5. send command */
     success = usdhc_send_command_poll(SD_CMD17_READ_SINGLE_BLOCK, data_address);
@@ -487,19 +516,24 @@ unit). */
         return;
     }
 
-    sddf_printf("wait for transfer complete...\n");
+    sddf_printf("waiting for transfer complete...\n");
     usdhc_debug();
-    sddf_printf("dma system addr (phys): 0x%x\n", usdhc_regs->ds_addr);
 
-    // DMASEL.
+    // DMASEL (simple or off)
     assert(!(usdhc_regs->prot_ctrl & BIT(9))  && !(usdhc_regs->prot_ctrl & BIT(8)));
 
     // TODO: Gets stuck here.
     /* 6. Wait for the Transfer Complete interrupt. */
-    // while (!(usdhc_regs->int_status & USDHC_INT_STATUS_TC)); // todo: timeout
+    // while (!(usdhc_regs->int_status & (USDHC_INT_STATUS_TC | USDHC_INT_STATUS_DTOE)));
     while (!usdhc_regs->int_status);
-    sddf_printf("transfer complete?\n");
-    usdhc_debug();
+
+    if (usdhc_regs->int_status & USDHC_INT_STATUS_TC) {
+        sddf_printf("transfer complete?\n");
+    } else if (usdhc_regs->int_status & USDHC_INT_STATUS_DTOE) {
+        sddf_printf("data timeout error\n");
+        usdhc_debug();
+        assert(false);
+    }
 }
 
 void init()
@@ -523,6 +557,10 @@ void init()
 
     usdhc_debug();
     shared_sd_setup();
+
+    // set WR_WML to 128 & RD_WML to 128
+    usdhc_regs->wtmk_lvl |= (0x01 << 16) | (0x01);
+    usdhc_regs->int_status_en = 0xffffffff;
 
     // Figure 4-13 : SD Memory Card State Diagram (data transfer mode)
     usdhc_read_single_block();
