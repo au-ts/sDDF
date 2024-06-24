@@ -61,7 +61,7 @@ uint32_t get_command_xfr_typ(sd_cmd_t cmd) {
         sddf_printf("command has data present\n");
         cmd_xfr_typ |= USDHC_CMD_XFR_TYP_DPSEL;
         // disable DMA for now...
-        // usdhc_regs->mix_ctrl |= USDHC_MIX_CTRL_DMAEN | USDHC_MIX_CTLR_AC12EN;
+        usdhc_regs->mix_ctrl |= USDHC_MIX_CTRL_DMAEN | USDHC_MIX_CTLR_AC12EN;
     }
 
     /* Ref: Table 10-42.
