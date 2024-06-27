@@ -1,11 +1,17 @@
+/*
+ * Copyright 2024, UNSW
+ * SPDX-License-Identifier: BSD-2-Clause
+ */
+
+#pragma once
+
+#include <stdint.h>
+
 /**
  * Master Boot Record with MSDOS partition table.
  *
  * https://en.wikipedia.org/wiki/Master_boot_record
 */
-#pragma once
-
-#include <stdint.h>
 
 #define MSDOS_MBR_SIGNATURE 0xAA55
 #define MSDOS_MBR_MAX_PRIMARY_PARTITIONS 4

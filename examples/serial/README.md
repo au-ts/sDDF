@@ -1,3 +1,9 @@
+<!--
+    Copyright 2024, UNSW
+
+    SPDX-License-Identifier: BSD-2-Clause
+-->
+
 # Serial example
 
 This is an example to show multiple clients being used with a UART driver.

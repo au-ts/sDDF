@@ -1,3 +1,8 @@
+/*
+ * Copyright 2024, UNSW
+ * SPDX-License-Identifier: BSD-2-Clause
+ */
+
 #include <stdint.h>
 #include <sddf/blk/bitarray.h>
 #include <sddf/blk/fsmalloc.h>

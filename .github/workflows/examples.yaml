@@ -1,3 +1,7 @@
+# Copyright 2024, UNSW
+#
+# SPDX-License-Identifier: BSD-2-Clause
+
 # Build and test example code
 
 name: Examples

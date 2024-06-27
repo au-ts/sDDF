@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Matt Rossouw - matthew.rossouw@unsw.edu.au -->
-<!-- 2023 -->
+<!--
+    Copyright 2024, UNSW
+
+    SPDX-License-Identifier: BSD-2-Clause
+-->
 <system>
     <!--
         These memory regions are required for initialisation. In the future

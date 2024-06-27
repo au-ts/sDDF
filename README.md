@@ -1,3 +1,9 @@
+<!--
+    Copyright 2024, UNSW
+
+    SPDX-License-Identifier: BSD-2-Clause
+-->
+
 # seL4 Device Driver Framework
 
 The seL4 Device Driver Framework (sDDF) aims to provide interfaces and protocols for writing and

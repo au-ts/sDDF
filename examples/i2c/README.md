@@ -1,3 +1,9 @@
+<!--
+    Copyright 2024, UNSW
+
+    SPDX-License-Identifier: BSD-2-Clause
+-->
+
 # I<sup>2</sup>C example
 
 This example makes use of the NXP PN532 card-reader. This example was developed and tested using

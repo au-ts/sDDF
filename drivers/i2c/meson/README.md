@@ -1,3 +1,9 @@
+<!--
+    Copyright 2024, UNSW
+
+    SPDX-License-Identifier: BSD-2-Clause
+-->
+
 # sddf-i2c-driver
 
 This repo contains an i2c (inter-integrated-circuit) driver for the ODROID C4 Single Board Computer built over the seL4 Device Driver Framework. This repo is structured to be as generic as possible for future extension to other devices.

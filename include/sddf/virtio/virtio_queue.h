@@ -1,4 +1,11 @@
 /*
+ * Copyright 2007, 2009, IBM Corporation
+ * Copyright 2011, Red Hat, Inc
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
+/*
  * Virtual I/O Device (VIRTIO) Version 1.2
  * Committee Specification Draft 01
  * 09 May 2022

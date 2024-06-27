@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Copyright 2024, UNSW
+
+    SPDX-License-Identifier: BSD-2-Clause
+-->
 <system>
     <!-- The timer driver should run at higher priority than its clients.
         As a passive server, PPC into the driver will be fastpathed. -->
