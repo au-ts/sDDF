@@ -213,39 +213,41 @@ bool is_usdhc_clock_stable() {
     return usdhc_regs->pres_state & USDHC_PRES_STATE_SDSTB;
 }
 
+// TODO: Why pres_State not ->vend_spec
 void usdhc_setup_clock() {
     /* Ref: 10.3.6.7:
        - Clear the FRC_SDCLK_ON when changing SDCLKFS or setting RSTA bit
        - Also, make sure that the SDSTB field is high.
     */
-    usdhc_regs->pres_state &= ~USDHC_VEND_SPEC_FRC_SDCLK_ON;
+    usdhc_regs->vend_spec &= ~BIT(14); // disable cken
     while (!is_usdhc_clock_stable()); // TODO: ... timeout.
 
     /*
      TODO: Clock driver! No exist
-     ... let's just assume what i found elsewhere is right...
-     ... https://elixir.bootlin.com/linux/v6.9.3/source/arch/arm64/boot/dts/freescale/imx8mq.dtsi#L1499
-     ... 0x400000000 => 400 MHz base clock...
 
-     So (0x400_000_000 / (256 * 16)) == 0x400_000; divisor = 16, prescalar = 256
+     NB: Uboot sees to assume 150 MHz base clock, as we have 0x00 and 0b11 prescaler & divisor, so that means => 50Mhz it uses.
+
+     To get 400kHz, divide by 375 ~ 128 * 3, i.e. divisor = 3, prescalar = 0x40
     */
 
     /* TODO: We assume single data rate mode (DDR_EN of MIX_CTLR = 0) */
     // TODO: do this in a better, generic way.
-    sddf_printf("sys_Ctrl before: %u, ", usdhc_regs->sys_ctrl);
+    sddf_printf("sys_ctrl before: %u, ", usdhc_regs->sys_ctrl);
     uint32_t sys_ctrl = usdhc_regs->sys_ctrl;
-    sys_ctrl &= ~(0xffff << 4); // clear 12 bits 4 to 15.
-    sys_ctrl |= (0x00 << 8); // this is 0x80h into SDCLKFS for 256
-    sys_ctrl |= (0b0011 << 4); // divisor = 16.
+    sys_ctrl &= ~(0xffff0); // clear DTOCV,SDCLFS,DVS
+    sys_ctrl |= (0x40 << 8);
+    sys_ctrl |= (0b0011 << 4);
+    sys_ctrl |= ((0b1111) << 16); // Set the DTOCV to max
 
-    sys_ctrl |= ((0b1100) << 16); // Set the DTOCV to some value
-
+    usdhc_regs->sys_ctrl = sys_ctrl;
     sddf_printf("after: %u\n", usdhc_regs->sys_ctrl);
-    // usdhc_regs->sys_ctrl = sys_ctrl; // TODO: Why not set??? => apparently setting others breaks?
 
     while (!is_usdhc_clock_stable()); // TODO: ... timeout
 
-    usdhc_regs->pres_state |= USDHC_VEND_SPEC_FRC_SDCLK_ON;
+    usdhc_regs->vend_spec |= BIT(13) | BIT(14); // peren & cken
+
+    // force it on?
+    usdhc_regs->vend_spec |= USDHC_VEND_SPEC_FRC_SDCLK_ON;
 }
 
 /* Ref: See 10.3.4.2.2 "Reset" */
@@ -254,8 +256,10 @@ void usdhc_reset(void)
     // Perform software reset of all components
     usdhc_regs->sys_ctrl |= USDHC_SYS_CTRL_RSTA;
 
-    // TODO: This is also broke....
-    usdhc_setup_clock(/* 400 kHz */);
+    /* 80 clock ticks for power up, self-clearing when done */
+    usdhc_regs->sys_ctrl |= USDHC_SYS_CTRL_INITA;
+    while (!(usdhc_regs->sys_ctrl & USDHC_SYS_CTRL_INITA));
+
 
     usdhc_regs->int_status_en |= USDHC_INT_STATUS_EN_TCSEN | USDHC_INT_STATUS_EN_DINTSEN
                               | USDHC_INT_STATUS_EN_BRRSEN | USDHC_INT_STATUS_EN_CINTSEN
@@ -266,9 +270,17 @@ void usdhc_reset(void)
 
     while (usdhc_regs->pres_state & (USDHC_PRES_STATE_CIHB | USDHC_PRES_STATE_CDIHB));
 
-    /* 80 clock ticks for power up, self-clearing when done */
-    usdhc_regs->sys_ctrl |= USDHC_SYS_CTRL_INITA;
-    while (!(usdhc_regs->sys_ctrl & USDHC_SYS_CTRL_INITA));
+    // https://github.com/BarrelfishOS/barrelfish/blob/master/usr/drivers/imx8x/sdhc/sdhc.c#L166-L175
+    usdhc_regs->mmc_boot = 0;
+    usdhc_regs->mix_ctrl = 0;
+    usdhc_regs->clk_tune_ctrl_status = 0;
+    usdhc_regs->dll_status = 0;
+
+    // https://github.com/BarrelfishOS/barrelfish/blob/master/devices/imx8x/sdhc.dev#L309-L331
+    usdhc_regs->vend_spec |= BIT(11) | BIT(12); // hcken & ipgen = 1
+
+    // TODO: This is also broke....
+    usdhc_setup_clock(/* 400 kHz */);
 
     if (!usdhc_send_command_poll(SD_CMD0_GO_IDLE_STATE, 0x0)) {
         sddf_printf("reset failed...\n");
@@ -459,11 +471,19 @@ void usdhc_read_single_block() {
 
     /* [31:16] RCA, [15:0] Stuff bits*/
     /* move the card to the transfer state */
-    success = usdhc_send_command_poll(SD_CMD7_CARD_SELECT, ((uint32_t)card_info.rca << 16));
-    if (!success) {
-        sddf_printf("failed to move card to transfer state\n");
-        return;
-    }
+    // while (true) {
+        success = usdhc_send_command_poll(SD_CMD7_CARD_SELECT, ((uint32_t)card_info.rca << 16));
+        if (!success) {
+            sddf_printf("failed to move card to transfer state\n");
+            return;
+        }
+
+        // success = usdhc_send_command_poll(SD_CMD7_CARD_SELECT, ((uint32_t)card_info.rca << 16));
+        // if (!success) {
+        //     sddf_printf("failed to deslect card\n");
+        //     return;
+        // }
+    // }
 
     // This gives garbage????
     /* [31:0] stuff bits */
@@ -475,6 +495,7 @@ void usdhc_read_single_block() {
     // sddf_printf("scr: %u\n", usdhc_regs->cmd_rsp0);
 
     // success = usdhc_send_command_poll((sd_cmd_t){.cmd_index = 6})
+
 
     uint32_t block_length = 512; /* default, also Table 4-24 says it doesn't change anyway lol */
 
@@ -500,14 +521,21 @@ unit). */
     }
 
     // TODO: set elsewhere.
-    usdhc_regs->prot_ctrl &= ~0b110; // clear DTW (2-1)
-    usdhc_regs->prot_ctrl |= 0b010; // set DTW 4 bit mode
+    // usdhc_regs->prot_ctrl &= ~0b110; // clear DTW (2-1)
+    // usdhc_regs->prot_ctrl |= 0b010; // set DTW 4 bit mode
+
     usdhc_regs->ds_addr = usdhc_dma_buffer_paddr;
     sddf_printf("dma system addr (phys): 0x%lx\n", usdhc_dma_buffer_paddr);
     sddf_printf("dma system addr (phys): 0x%x\n", usdhc_regs->ds_addr);
     usdhc_debug();
 
     assert(usdhc_regs->host_ctrl_cap & BIT(22));
+
+    sddf_printf("waiting for a bit\n");
+            volatile int32_t i = 0xfffffff;
+            while (i > 0) {
+                i--; // blursed busy loop
+            }
 
     /* 5. send command */
     success = usdhc_send_command_poll(SD_CMD17_READ_SINGLE_BLOCK, data_address);
