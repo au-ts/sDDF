@@ -2,19 +2,19 @@
 <system>
     <memory_region name="uart" size="0x1_000" phys_addr="0x30860000" />
 
-    <memory_region name="rx_data_driver" size="0x2_000" page_size="0x1_000" />
-    <memory_region name="tx_data_driver" size="0x2_000" page_size="0x1_000" />
-    <memory_region name="rx_data_client0" size="0x2_000" page_size="0x1_000" />
-    <memory_region name="tx_data_client0" size="0x2_000" page_size="0x1_000" />
-    <memory_region name="rx_data_client1" size="0x2_000" page_size="0x1_000" />
-    <memory_region name="tx_data_client1" size="0x2_000" page_size="0x1_000" />
+    <memory_region name="rx_data_driver" size="0x2_000" />
+    <memory_region name="tx_data_driver" size="0x2_000" />
+    <memory_region name="rx_data_client0" size="0x2_000" />
+    <memory_region name="tx_data_client0" size="0x2_000" />
+    <memory_region name="rx_data_client1" size="0x2_000" />
+    <memory_region name="tx_data_client1" size="0x2_000" />
 
-    <memory_region name="rx_queue_driver" size="0x1_000" page_size="0x1_000"/>
-    <memory_region name="tx_queue_driver" size="0x1_000" page_size="0x1_000"/>
-    <memory_region name="rx_queue_client0" size="0x1_000" page_size="0x1_000"/>
-    <memory_region name="tx_queue_client0" size="0x1_000" page_size="0x1_000"/>
-    <memory_region name="rx_queue_client1" size="0x1_000" page_size="0x1_000"/>
-    <memory_region name="tx_queue_client1" size="0x1_000" page_size="0x1_000"/>
+    <memory_region name="rx_queue_driver" size="0x1_000" />
+    <memory_region name="tx_queue_driver" size="0x1_000" />
+    <memory_region name="rx_queue_client0" size="0x1_000" />
+    <memory_region name="tx_queue_client0" size="0x1_000" />
+    <memory_region name="rx_queue_client1" size="0x1_000" />
+    <memory_region name="tx_queue_client1" size="0x1_000" />
 
     <protection_domain name="uart" priority="100">
         <program_image path="uart_driver.elf" />
