@@ -521,7 +521,7 @@ unit). */
     }
 
     // TODO: set elsewhere.
-    // usdhc_regs->prot_ctrl &= ~0b110; // clear DTW (2-1)
+    usdhc_regs->prot_ctrl &= ~0b110; // clear DTW (2-1)
     // usdhc_regs->prot_ctrl |= 0b010; // set DTW 4 bit mode
 
     usdhc_regs->ds_addr = usdhc_dma_buffer_paddr;
@@ -536,6 +536,8 @@ unit). */
             while (i > 0) {
                 i--; // blursed busy loop
             }
+
+    sddf_printf("pre-read memory! %u\n", *(uint32_t*)usdhc_dma_buffer_vaddr);
 
     /* 5. send command */
     success = usdhc_send_command_poll(SD_CMD17_READ_SINGLE_BLOCK, data_address);
@@ -562,6 +564,8 @@ unit). */
         usdhc_debug();
         assert(false);
     }
+
+    sddf_printf("read memory! %u\n", *(uint32_t*)usdhc_dma_buffer_vaddr);
 }
 
 void init()
