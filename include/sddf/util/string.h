@@ -81,8 +81,8 @@ static inline char *sddf_strchr(const char *s, int c)
 
 static inline int sddf_memcmp(const void *a, const void *b, size_t n)
 {
-    unsigned char *_a = (unsigned char *)a;
-    unsigned char *_b = (unsigned char *)b;
+    const unsigned char *_a = a;
+    const unsigned char *_b = b;
     for (size_t i = 0; i < n; i++) {
         if (_a[i] != _b[i]) {
             return (int)_a[i] - (int)_b[i];
