@@ -152,7 +152,7 @@ static inline void serial_update_visible_head(serial_queue_handle_t *queue_handl
     uint32_t head = queue_handle->queue->head;
     uint32_t tail = queue_handle->queue->tail;
 
-    /* Ensure updates to head don't corrupt existing data */
+    /* Ensure updates to head don't corrupt queue size constraints */
     if (head <= tail) {
         assert(local_head >= head && local_head <= tail);
     } else {
@@ -167,42 +167,61 @@ static inline void serial_update_visible_head(serial_queue_handle_t *queue_handl
     queue_handle->queue->head = local_head;
 }
 
+/**
+ * Return the number of bytes of data stored in the queue.
+ *
+ * @param queue_handle queue containing the data.
+ *
+ * @return The bytes of data stored in the queue. 
+ */
 static inline uint32_t serial_queue_length(serial_queue_handle_t *queue_handle)
 {
     return queue_handle->queue->tail - queue_handle->queue->head;
 }
 
+/**
+ * Return the number of bytes of data stored contiguously in the queue from
+ * the head index to either the tail index or the end of the data region.
+ *
+ * @param queue_handle queue containing the data.
+ *
+ * @return The bytes of data stored contiguously in the queue. 
+ */
 static inline uint32_t serial_queue_contiguous_length(serial_queue_handle_t *queue_handle)
 {
-    uint32_t head = queue_handle->queue->head % queue_handle->size;
-    uint32_t tail = queue_handle->queue->tail % queue_handle->size;
-
-    if (head <= tail) {
-        return tail - head;
-    } else {
-        return queue_handle->size - head;
-    }
+    return MIN(queue_handle->size - (queue_handle->queue->head % queue_handle->size), serial_queue_length(queue_handle));
 }
 
+/**
+ * Return the number of free bytes remaining in the queue. This is the number of 
+ * bytes that can be added to the queue until the queue is full.
+ *
+ * @param queue_handle queue to be filled with data.
+ *
+ * @return The amount of free space remaining in the queue.
+ */
 static inline uint32_t serial_queue_free(serial_queue_handle_t *queue_handle)
 {
     return queue_handle->size - serial_queue_length(queue_handle);
 }
 
+/**
+ * Return the number of bytes that can be copied into the queue contiguously. This
+ * is the number of bytes that can be copied into the queue with a single call of memcpy.
+ *
+ * @param queue_handle queue to be filled with data.
+ *
+ * @return The amount of contiguous free space remaining in the queue.
+ */
 static inline uint32_t serial_queue_contiguous_free(serial_queue_handle_t *queue_handle)
 {
-    uint32_t tail = queue_handle->queue->tail % queue_handle->size;
-    uint32_t free_size = serial_queue_free(queue_handle);
-
-    if ((tail + free_size) <= queue_handle->size && (tail + free_size > tail)) {
-        return free_size;
-    } else {
-        return queue_handle->size - tail;
-    }
+    return MIN(queue_handle->size - (queue_handle->queue->tail % queue_handle->size), serial_queue_free(queue_handle));
 }
 
 /**
- * Transfer all data from consume queue to produce queue.
+ * Transfer all data from consume queue to produce queue. Assumes there
+ * is enough free space in the free queue to fit all data in the active
+ * queue.
  *
  * @param active_queue_handle queue to remove from.
  * @param free_queue_handle queue to insert into.
@@ -229,7 +248,9 @@ static inline void serial_transfer_all(serial_queue_handle_t *active_queue_handl
 }
 
 /**
- * Transfer all data from consume queue to produce queue.
+ * Transfer all data from consume queue to produce queue and add colour start and end codes
+ * before and after the data. Assumes there is enough free space in the free queue to fit
+ * all data in the active.
  *
  * @param active_queue_handle queue to remove from.
  * @param free_queue_handle queue to insert into.
@@ -288,7 +309,7 @@ static inline void serial_transfer_all_with_colour(serial_queue_handle_t *active
 }
 
 /**
- * Initialise the shared queue.
+ * Initialise the queue handle data structure with the shared queue.
  *
  * @param queue_handle queue handle to use.
  * @param queue pointer to queue in shared memory.
