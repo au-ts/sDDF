@@ -232,9 +232,19 @@ bool is_usdhc_clock_stable() {
     return usdhc_regs->pres_state & USDHC_PRES_STATE_SDSTB;
 }
 
-// TODO: Why pres_State not ->vend_spec
-void usdhc_setup_clock() {
-    /* Ref: 10.3.6.7:
+#define KHZ (1000)
+#define MHZ (1000 * KHZ)
+
+typedef enum sd_clock_freq {
+    /* [SD-PHY] 4.2.1 Card Reset "The cards are initialized... 400KHz clock frequency" */
+    ClockSpeedIdentify_400KHz = 400 * KHZ,
+
+    // TODO: Higher speeds are currently never used.
+    // ClockSpeedDefaultSpeed_25MHz = 25 * MHZ,
+} sd_clock_freq_t;
+
+void usdhc_setup_clock(sd_clock_freq_t desired_frequency) {
+    /* [IMX8MDQLQRM] Section 10.3.6.7 Change clock frequency
        - Clear the FRC_SDCLK_ON when changing SDCLKFS or setting RSTA bit
        - Also, make sure that the SDSTB field is high.
     */
@@ -244,25 +254,40 @@ void usdhc_setup_clock() {
     // usdhc_regs->vend_spec &= ~USDHC_VEND_SPEC_FRC_SDCLK_ON;
     while (!is_usdhc_clock_stable()); // TODO: ... timeout.
 
-    /*
-     TODO: Clock driver! No exist
-
-     NB: Uboot sees to assume 150 MHz base clock, as we have 0x00 and 0b11 prescaler & divisor, so that means => 50Mhz it uses.
-
-     To get 400kHz, divide by 375 ~ 128 * 3, i.e. divisor = 3, prescalar = 0x40
+    /* TODO: We currently don't have a clock driver....
+        we inherit a 150MHz clock from U-Boot, so let's use that...
+        (TODO: Is there a good way we can assert this?)
     */
+    uint32_t frequency = 150 * MHZ;
+    /* Described by [IMX8MDQLQRM] SYS_CTRL, page 2755. */
+    uint8_t sdclkfs = 1; // Up to 0x80 (div by 256, power 2)
+    uint8_t dvs = 0; // divided by 1. Up to 0b1111 (div by 16, increment 1)
 
-    /* TODO: We assume single data rate mode (DDR_EN of MIX_CTLR = 0) */
-    // TODO: do this in a better, generic way.
-    LOG_DRIVER("sys_ctrl before: %u, ", usdhc_regs->sys_ctrl);
+    // TODO: We always assume SDR, not DDR. This affects clock calculations.
+
+    /* This logic is based on code in U-Boot...
+        https://github.com/u-boot/u-boot/blob/8937bb265a/drivers/mmc/fsl_esdhc_imx.c#L606-L610
+    */
+    while (frequency / (16 * sdclkfs * dvs) > frequency && sdclkfs < 256)
+        sdclkfs *= 2;
+
+    while (frequency / (sdclkfs * dvs) > frequency && dvs < 16)
+        dvs++;
+
+    sdclkfs >>= 1;
+    dvs -= 1;
+
+    assert(sdclkfs == 0x40);
+    assert(dvs == 0b0011);
+
     uint32_t sys_ctrl = usdhc_regs->sys_ctrl;
+    LOG_DRIVER("changing clocks(SYS_CTRL) from %u", sys_ctrl);
     sys_ctrl &= ~(0xffff0); // clear DTOCV,SDCLFS,DVS
     sys_ctrl |= (0x40 << 8);
     sys_ctrl |= (0b0011 << 4);
     sys_ctrl |= ((0b1111) << 16); // Set the DTOCV to max
-
+    LOG_DRIVER(" to %u\n", sys_ctrl);
     usdhc_regs->sys_ctrl = sys_ctrl;
-    LOG_DRIVER("after: %u\n", usdhc_regs->sys_ctrl);
 
     while (!is_usdhc_clock_stable()); // TODO: ... timeout
 
@@ -301,8 +326,7 @@ void usdhc_reset(void)
     // TODO(quirks): see header file comment about uboot; uboot does this...
     usdhc_regs->vend_spec |= USDHC_VEND_SPEC_HCKEN | USDHC_VEND_SPEC_IPGEN;
 
-    // TODO: This is also broke....
-    usdhc_setup_clock(/* 400 kHz */);
+    usdhc_setup_clock(ClockSpeedIdentify_400KHz);
 
     if (!usdhc_send_command_poll(SD_CMD0_GO_IDLE_STATE, 0x0)) {
         LOG_DRIVER_ERR("reset failed...\n");
