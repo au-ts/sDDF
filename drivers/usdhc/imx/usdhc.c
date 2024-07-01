@@ -565,7 +565,7 @@ unit). */
 
     if (usdhc_regs->int_status & USDHC_INT_STATUS_TC) {
         sddf_printf("read complete?\n");
-        usdhc_regs->int_status |= USDHC_INT_STATUS_TC;
+        usdhc_regs->int_status = USDHC_INT_STATUS_TC;
     } else if (usdhc_regs->int_status & USDHC_INT_STATUS_DTOE) {
         sddf_printf("data timeout error\n");
         usdhc_debug();
@@ -596,7 +596,7 @@ unit). */
 
     if (usdhc_regs->int_status & USDHC_INT_STATUS_TC) {
         sddf_printf("write complete?\n");
-        usdhc_regs->int_status |= USDHC_INT_STATUS_TC;
+        usdhc_regs->int_status = USDHC_INT_STATUS_TC;
     } else if (usdhc_regs->int_status & USDHC_INT_STATUS_DTOE) {
         sddf_printf("data timeout error\n");
         usdhc_debug();
