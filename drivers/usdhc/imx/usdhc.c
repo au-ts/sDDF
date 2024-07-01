@@ -60,8 +60,10 @@ uint32_t get_command_xfr_typ(sd_cmd_t cmd) {
     if (cmd.data_present) {
         sddf_printf("command has data present\n");
         cmd_xfr_typ |= USDHC_CMD_XFR_TYP_DPSEL;
-        // disable DMA for now...
-        usdhc_regs->mix_ctrl |= USDHC_MIX_CTRL_DMAEN | USDHC_MIX_CTLR_AC12EN;
+        usdhc_regs->mix_ctrl |= USDHC_MIX_CTRL_DMAEN;
+
+        // docs say this is ignored by uSDHC in sinle block mode, but it's not (lol)
+        // if (multi-blocks), mix_ctrl |= USDHC_MIX_CTLR_AC12EN;
     }
 
     /* Ref: Table 10-42.
@@ -186,6 +188,11 @@ bool usdhc_send_command_poll(sd_cmd_t cmd, uint32_t cmd_arg)
     } else if (status & USDHC_INT_STATUS_DTOE) {
         /* data timeout error */
         sddf_printf("data timeout error\n");
+        usdhc_debug();
+        return false;
+    } else if (status & USDHC_INT_STATUS_AC12E) {
+        /* auto cmd 12 error */
+        sddf_printf("auto cmd12 error: %u\n", usdhc_regs->autocmd12_err_status);
         usdhc_debug();
         return false;
     }

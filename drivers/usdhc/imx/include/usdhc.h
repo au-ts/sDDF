@@ -78,13 +78,14 @@ typedef volatile struct imx_usdhc_regs imx_usdhc_regs_t;
 #define USDHC_SYS_CTRL_RSTT  BIT(28)  /* Reset tuning */
 
 /* INT_STATUS Bits. See 10.3.7.1.14 */
-#define USDHC_INT_STATUS_CC   BIT(0)  /* Command complete. */
-#define USDHC_INT_STATUS_TC   BIT(1)  /* Transfer complete. */
-#define USDHC_INT_STATUS_CTOE BIT(16) /* Command timeout error. */
-#define USDHC_INT_STATUS_CCE  BIT(17) /* Command CRC error. */
-#define USDHC_INT_STATUS_CEBE BIT(18) /* Command end bit error */
-#define USDHC_INT_STATUS_CIE  BIT(19) /* Command index error. */
-#define USDHC_INT_STATUS_DTOE BIT(20) /* Data timeout error. */
+#define USDHC_INT_STATUS_CC    BIT(0)  /* Command complete. */
+#define USDHC_INT_STATUS_TC    BIT(1)  /* Transfer complete. */
+#define USDHC_INT_STATUS_CTOE  BIT(16) /* Command timeout error. */
+#define USDHC_INT_STATUS_CCE   BIT(17) /* Command CRC error. */
+#define USDHC_INT_STATUS_CEBE  BIT(18) /* Command end bit error */
+#define USDHC_INT_STATUS_CIE   BIT(19) /* Command index error. */
+#define USDHC_INT_STATUS_DTOE  BIT(20) /* Data timeout error. */
+#define USDHC_INT_STATUS_AC12E BIT(24) /* Auto CMD12 error. */
 
 /* INT_STATUS_EN Bits. See 10.3.7.1.15 */
 #define USDHC_INT_STATUS_EN_CCSEN    BIT(0)   /* Command complete status enable */
