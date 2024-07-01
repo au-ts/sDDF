@@ -168,18 +168,19 @@ typedef struct {
 #define _SD_ACMD_DEF(number, rtype) (sd_cmd_t){.cmd_index = (number), .cmd_response_type = (rtype), .is_app_cmd = true, .data_present = false}
 
 /* GENERIC? */
-#define SD_CMD0_GO_IDLE_STATE      _SD_CMD_DEF(0, RespType_None)
-#define SD_CMD2_ALL_SEND_CID       _SD_CMD_DEF(2, RespType_R2)
-#define SD_CMD3_SEND_RELATIVE_ADDR _SD_CMD_DEF(3, RespType_R6)
-#define SD_CMD7_CARD_SELECT        _SD_CMD_DEF(7, RespType_R1b)
-#define SD_CMD8_SEND_IF_COND       _SD_CMD_DEF(8, RespType_R7)
-#define SD_CMD13_SEND_STATUS       _SD_CMD_DEF(13, RespType_R1)
-#define SD_CMD16_SET_BLOCKLEN      _SD_CMD_DEF(16, RespType_R1)
-#define SD_CMD17_READ_SINGLE_BLOCK _SD_CMD_DEF(17, RespType_R1, .data_present = true)
-#define SD_CMD55_APP_CMD           _SD_CMD_DEF(55, RespType_R1)
+#define SD_CMD0_GO_IDLE_STATE       _SD_CMD_DEF(0, RespType_None)
+#define SD_CMD2_ALL_SEND_CID        _SD_CMD_DEF(2, RespType_R2)
+#define SD_CMD3_SEND_RELATIVE_ADDR  _SD_CMD_DEF(3, RespType_R6)
+#define SD_CMD7_CARD_SELECT         _SD_CMD_DEF(7, RespType_R1b)
+#define SD_CMD8_SEND_IF_COND        _SD_CMD_DEF(8, RespType_R7)
+#define SD_CMD13_SEND_STATUS        _SD_CMD_DEF(13, RespType_R1)
+#define SD_CMD16_SET_BLOCKLEN       _SD_CMD_DEF(16, RespType_R1)
+#define SD_CMD17_READ_SINGLE_BLOCK  _SD_CMD_DEF(17, RespType_R1, .data_present = true)
+#define SD_CMD24_WRITE_SINGLE_BLOCK _SD_CMD_DEF(24, RespType_R1, .data_present = true)
+#define SD_CMD55_APP_CMD            _SD_CMD_DEF(55, RespType_R1)
 
-#define SD_ACMD41_SD_SEND_OP_COND  _SD_ACMD_DEF(41, RespType_R3)
-#define SD_ACMD51_SEND_SCR         _SD_ACMD_DEF(51, RespType_R1)
+#define SD_ACMD41_SD_SEND_OP_COND   _SD_ACMD_DEF(41, RespType_R3)
+#define SD_ACMD51_SEND_SCR          _SD_ACMD_DEF(51, RespType_R1)
 
 
 /* See Section 4.10.1 / Table 4-42 definitions */

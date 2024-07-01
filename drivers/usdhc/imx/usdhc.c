@@ -200,8 +200,13 @@ bool usdhc_send_command_poll(sd_cmd_t cmd, uint32_t cmd_arg)
 
     /* clear CC bit and all command error bits... */
     /* n.b. writing 1 clears it ! lol.... */
-    assert(usdhc_regs->int_status == USDHC_INT_STATUS_CC);
-    usdhc_regs->int_status = USDHC_INT_STATUS_CC;
+    uint32_t the_status = usdhc_regs->int_status;
+    if (the_status == USDHC_INT_STATUS_CC) {
+        usdhc_regs->int_status = USDHC_INT_STATUS_CC;
+    } else {
+        sddf_printf("unknown status at command end: 0x%x\n", the_status);
+        return false;
+    }
 
     return true;
 }
@@ -512,10 +517,17 @@ void usdhc_read_single_block() {
 
     /* 5. disable buffer read ready; set DMA, enable DCMA (done in send_command)  */
     usdhc_regs->int_status_en &= ~USDHC_INT_STATUS_EN_BRRSEN;
+    // also disable buffer write read, since we're not using the buffer
+    usdhc_regs->int_status_en &= ~USDHC_INT_STATUS_EN_BWRSEN;
+    // idk why the DINT (DMA interrupt ) happens
+    usdhc_regs->int_status_en &= ~USDHC_INT_STATUS_EN_DINTSEN;
 
     /* SDSC Card (CCS=0) uses byte unit address and SDHC and SDXC Cards (CCS=1) use block unit address (512 Bytes
 unit). */
-    uint32_t data_address = 0; /* 1st block (0 is MBR i believe )*/
+    // uint32_t data_address = 0;
+
+    // I wrote 0xdeadbeef to this block via uboot.
+    uint32_t data_address = 0xd86000;
     if (!card_info.ccs) {
         data_address *= block_length; /* convert to byte address */
     }
@@ -530,12 +542,6 @@ unit). */
     usdhc_debug();
 
     assert(usdhc_regs->host_ctrl_cap & BIT(22));
-
-    sddf_printf("waiting for a bit\n");
-            volatile int32_t i = 0xfffffff;
-            while (i > 0) {
-                i--; // blursed busy loop
-            }
 
     sddf_printf("pre-read memory! %u\n", *(uint32_t*)usdhc_dma_buffer_vaddr);
 
@@ -558,14 +564,46 @@ unit). */
     while (!usdhc_regs->int_status);
 
     if (usdhc_regs->int_status & USDHC_INT_STATUS_TC) {
-        sddf_printf("transfer complete?\n");
+        sddf_printf("read complete?\n");
+        usdhc_regs->int_status |= USDHC_INT_STATUS_TC;
     } else if (usdhc_regs->int_status & USDHC_INT_STATUS_DTOE) {
         sddf_printf("data timeout error\n");
         usdhc_debug();
         assert(false);
     }
 
-    sddf_printf("read memory! %u\n", *(uint32_t*)usdhc_dma_buffer_vaddr);
+    sddf_printf("read memory! %x\n", *(uint32_t*)usdhc_dma_buffer_vaddr);
+
+    assert(*(uint32_t*)usdhc_dma_buffer_vaddr == 0xdeadbeef);
+
+    // let us write...
+    data_address = 0xd86000 + 1;
+    if (!card_info.ccs) {
+        data_address *= block_length; /* convert to byte address */
+    }
+
+    usdhc_regs->mix_ctrl &= ~USDHC_MIX_CTRL_DTDSEL; // for writing
+    // idk if this moves, but to be safe...
+    usdhc_regs->ds_addr = usdhc_dma_buffer_paddr;
+
+    success = usdhc_send_command_poll(SD_CMD24_WRITE_SINGLE_BLOCK, data_address);
+    if (!success) {
+        sddf_printf("failed to write single block\n");
+        return;
+    }
+
+    while (!usdhc_regs->int_status);
+
+    if (usdhc_regs->int_status & USDHC_INT_STATUS_TC) {
+        sddf_printf("write complete?\n");
+        usdhc_regs->int_status |= USDHC_INT_STATUS_TC;
+    } else if (usdhc_regs->int_status & USDHC_INT_STATUS_DTOE) {
+        sddf_printf("data timeout error\n");
+        usdhc_debug();
+        assert(false);
+    }
+
+    usdhc_debug();
 }
 
 void init()
