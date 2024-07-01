@@ -11,7 +11,7 @@
 #define LOG_DRIVER(...) do{}while(0)
 #endif
 
-#define LOG_DRIVER_ERR(...) do{ sddf_printf("uSDHC DRIVER|ERROR: "); sddf_printf(__VA_ARGS__); }while(0)
+#define LOG_DRIVER_ERR(...) do{ sddf_printf("uSDHC DRIVER|ERROR: "); sddf_printf(__VA_ARGS__); usdhc_debug(); }while(0)
 
 volatile imx_usdhc_regs_t *usdhc_regs;
 volatile uint32_t *iomuxc_regs;
@@ -198,21 +198,11 @@ bool usdhc_send_command_poll(sd_cmd_t cmd, uint32_t cmd_arg)
     } else if (status & USDHC_INT_STATUS_DTOE) {
         /* data timeout error */
         LOG_DRIVER_ERR("data timeout error\n");
-        usdhc_debug();
         return false;
     } else if (status & USDHC_INT_STATUS_AC12E) {
         /* auto cmd 12 error */
         LOG_DRIVER_ERR("auto cmd12 error: %u\n", usdhc_regs->autocmd12_err_status);
-        usdhc_debug();
         return false;
-    }
-
-    // Either of the busy response commands
-    // SDIO 4.9.2 R1b spec: The Host shall check for busy at the response.
-    if (cmd.cmd_response_type == RespType_R1b) {
-        LOG_DRIVER("waiting on DAT[0]...\n");
-        usdhc_debug();
-        while (!(usdhc_regs->pres_state & 0x01000000)); // look at status of DATA[0] line..., wait for go low?
     }
 
     /* clear CC bit and all command error bits... */
@@ -223,6 +213,13 @@ bool usdhc_send_command_poll(sd_cmd_t cmd, uint32_t cmd_arg)
     } else {
         LOG_DRIVER_ERR("unknown status at command end: 0x%x\n", the_status);
         return false;
+    }
+
+    if (cmd.cmd_response_type == RespType_R1b) {
+        LOG_DRIVER("waiting on DAT[0]...\n");
+        // [SD-PHY] 4.9.2 R1b  "The Host shall check for busy at the response"
+        //          "... an optional busy signal transmitted on the data line"
+        while (!(usdhc_regs->pres_state & USDHC_PRES_STATE_DLSL0));
     }
 
     return true;
@@ -364,7 +361,6 @@ void shared_sd_setup() {
             success = usdhc_send_command_poll(SD_ACMD41_SD_SEND_OP_COND, SD_OCR_CCS | (voltage_window & 0xffffff));
             if (!success) {
                 LOG_DRIVER_ERR("Not SD Memory Card...\n");
-                usdhc_debug();
                 return;
             }
 
@@ -516,7 +512,6 @@ unit). */
         usdhc_regs->int_status = USDHC_INT_STATUS_TC;
     } else if (usdhc_regs->int_status & USDHC_INT_STATUS_DTOE) {
         LOG_DRIVER_ERR("data timeout error\n");
-        usdhc_debug();
         assert(false);
     }
 
@@ -545,7 +540,6 @@ unit). */
         usdhc_regs->int_status = USDHC_INT_STATUS_TC;
     } else if (usdhc_regs->int_status & USDHC_INT_STATUS_DTOE) {
         LOG_DRIVER_ERR("data timeout error\n");
-        usdhc_debug();
         assert(false);
     }
 

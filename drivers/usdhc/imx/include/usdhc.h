@@ -70,6 +70,7 @@ typedef struct imx_usdhc_regs {
 #define USDHC_PRES_STATE_DLA   BIT(2)  /* Data line active */
 #define USDHC_PRES_STATE_SDSTB BIT(3)  /* SD clock stable */
 #define USDHC_PRES_STATE_CINST BIT(16) /* Card inserted. */
+#define USDHC_PRES_STATE_DLSL0 BIT(24) /* DATA[0] line signal level */
 
 /* [IMX8MDQLQRM] Section 10.3.7.1.12 Protocol Control */
 #define USDHC_PROT_CTRL_DTW_SHIFT    1             /* Data transfer width.   */
