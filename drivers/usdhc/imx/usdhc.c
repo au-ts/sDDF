@@ -27,8 +27,8 @@ static struct {
 } card_info = { .rca = 0 };
 
 void usdhc_debug(void) {
-    LOG_DRIVER("uSDHC: PRES_STATE: %u, PROT_CTRL: %u, SYS_CTRL: %u, MIX_CTRL: %u, INT_STATUS: %u, INT_STATUS_EN: %u, INT_SIGNAL_EN: %u, VEND_SPEC: %u, VEND_SPEC2: %u, BLK_ATT: %u\n", usdhc_regs->pres_state, usdhc_regs->prot_ctrl, usdhc_regs->sys_ctrl, usdhc_regs->mix_ctrl, usdhc_regs->int_status, usdhc_regs->int_status_en, usdhc_regs->int_signal_en, usdhc_regs->vend_spec, usdhc_regs->vend_spec2, usdhc_regs->blk_att);
-    LOG_DRIVER("uSDHC: CMD_RSP0: %u, CMD_RSP1: %u, CMD_RSP2: %u, CMD_RSP3: %u\n", usdhc_regs->cmd_rsp0, usdhc_regs->cmd_rsp1, usdhc_regs->cmd_rsp2, usdhc_regs->cmd_rsp3);
+    LOG_DRIVER("PRES_STATE: %u, PROT_CTRL: %u, SYS_CTRL: %u, MIX_CTRL: %u, INT_STATUS: %u, INT_STATUS_EN: %u, INT_SIGNAL_EN: %u, VEND_SPEC: %u, VEND_SPEC2: %u, BLK_ATT: %u\n", usdhc_regs->pres_state, usdhc_regs->prot_ctrl, usdhc_regs->sys_ctrl, usdhc_regs->mix_ctrl, usdhc_regs->int_status, usdhc_regs->int_status_en, usdhc_regs->int_signal_en, usdhc_regs->vend_spec, usdhc_regs->vend_spec2, usdhc_regs->blk_att);
+    LOG_DRIVER("CMD_RSP0: %u, CMD_RSP1: %u, CMD_RSP2: %u, CMD_RSP3: %u\n", usdhc_regs->cmd_rsp0, usdhc_regs->cmd_rsp1, usdhc_regs->cmd_rsp2, usdhc_regs->cmd_rsp3);
 }
 
 void usdhc_notified(void)
@@ -243,7 +243,7 @@ typedef enum sd_clock_freq {
     // ClockSpeedDefaultSpeed_25MHz = 25 * MHZ,
 } sd_clock_freq_t;
 
-void usdhc_setup_clock(sd_clock_freq_t desired_frequency) {
+void usdhc_setup_clock(sd_clock_freq_t frequency) {
     /* [IMX8MDQLQRM] Section 10.3.6.7 Change clock frequency
        - Clear the FRC_SDCLK_ON when changing SDCLKFS or setting RSTA bit
        - Also, make sure that the SDSTB field is high.
@@ -258,35 +258,35 @@ void usdhc_setup_clock(sd_clock_freq_t desired_frequency) {
         we inherit a 150MHz clock from U-Boot, so let's use that...
         (TODO: Is there a good way we can assert this?)
     */
-    uint32_t frequency = 150 * MHZ;
-    /* Described by [IMX8MDQLQRM] SYS_CTRL, page 2755. */
-    uint8_t sdclkfs = 1; // Up to 0x80 (div by 256, power 2)
-    uint8_t dvs = 0; // divided by 1. Up to 0b1111 (div by 16, increment 1)
+    uint32_t clock_source = 150 * MHZ;
+    /* Described by [IMX8MDQLQRM] SYS_CTRL, page 2755.
+       Values here are 1-offset compared to datasheet ones */
+    uint16_t sdclkfs = 1;
+    uint8_t dvs = 1;
 
     // TODO: We always assume SDR, not DDR. This affects clock calculations.
 
     /* This logic is based on code in U-Boot...
         https://github.com/u-boot/u-boot/blob/8937bb265a/drivers/mmc/fsl_esdhc_imx.c#L606-L610
     */
-    while (frequency / (16 * sdclkfs * dvs) > frequency && sdclkfs < 256)
+    while ((clock_source / (16 * sdclkfs)) > frequency && sdclkfs < 256)
         sdclkfs *= 2;
 
-    while (frequency / (sdclkfs * dvs) > frequency && dvs < 16)
+    while (clock_source / (dvs * sdclkfs) > frequency && dvs < 16)
         dvs++;
 
+    LOG_DRIVER("Found freq %u for target %u Hz\n", clock_source / (dvs * sdclkfs), frequency);
+
+    /* Remove the offset by 1 */
     sdclkfs >>= 1;
     dvs -= 1;
 
-    assert(sdclkfs == 0x40);
-    assert(dvs == 0b0011);
-
     uint32_t sys_ctrl = usdhc_regs->sys_ctrl;
-    LOG_DRIVER("changing clocks(SYS_CTRL) from %u", sys_ctrl);
     sys_ctrl &= ~(0xffff0); // clear DTOCV,SDCLFS,DVS
-    sys_ctrl |= (0x40 << 8);
-    sys_ctrl |= (0b0011 << 4);
+    sys_ctrl |= (sdclkfs << 8);
+    sys_ctrl |= (dvs << 4);
     sys_ctrl |= ((0b1111) << 16); // Set the DTOCV to max
-    LOG_DRIVER(" to %u\n", sys_ctrl);
+    LOG_DRIVER("Changing clocks(SYS_CTRL) from 0x%x to 0x%x\n", usdhc_regs->sys_ctrl, sys_ctrl);
     usdhc_regs->sys_ctrl = sys_ctrl;
 
     while (!is_usdhc_clock_stable()); // TODO: ... timeout
