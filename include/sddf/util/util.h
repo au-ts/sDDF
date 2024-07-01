@@ -62,20 +62,12 @@ void _assert_fail(const char  *assertion, const char  *file, unsigned int line, 
 
 static inline int sddf_isspace(int ch)
 {
-#if __has_builtin(__builtin_isspace)
-    return __builtin_isspace(ch);
-#else
     return ch == ' ' || ch == '\f' || ch == '\n' || ch == '\r' || ch == '\t' || ch == '\v';
-#endif
 }
 
 static inline int sddf_isdigit(int ch)
 {
-#if __has_builtin(__builtin_isdigit)
-    return __builtin_isdigit(ch);
-#else
     return ch >= '0' && ch <= '9';
-#endif
 }
 
 static inline int sddf_atoi(const char *str)
