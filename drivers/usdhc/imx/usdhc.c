@@ -13,7 +13,7 @@
 
 #define LOG_DRIVER_ERR(...) do{ sddf_printf("uSDHC DRIVER|ERROR: "); sddf_printf(__VA_ARGS__); }while(0)
 
-imx_usdhc_regs_t *usdhc_regs;
+volatile imx_usdhc_regs_t *usdhc_regs;
 volatile uint32_t *iomuxc_regs;
 
 uint8_t *usdhc_dma_buffer_vaddr;
@@ -99,7 +99,7 @@ uint32_t get_command_xfr_typ(sd_cmd_t cmd) {
         cmd_xfr_typ |= USHDC_CMD_XFR_TYP_CICEN;
         cmd_xfr_typ |= USDHC_CMD_XFR_TYP_CCCEN;
         cmd_xfr_typ |= (0b10 << USDHC_CMD_XFR_TYP_RSPTYP_SHIFT);
-    } else if (rtype == RespType_R1b || rtype == RespType_R5b) {
+    } else if (rtype == RespType_R1b) {
         // Index & CRC Checks: Enabled.
         cmd_xfr_typ |= USHDC_CMD_XFR_TYP_CICEN;
         cmd_xfr_typ |= USDHC_CMD_XFR_TYP_CCCEN;
@@ -209,7 +209,7 @@ bool usdhc_send_command_poll(sd_cmd_t cmd, uint32_t cmd_arg)
 
     // Either of the busy response commands
     // SDIO 4.9.2 R1b spec: The Host shall check for busy at the response.
-    if (cmd.cmd_response_type == RespType_R1b || cmd.cmd_response_type == RespType_R5b) {
+    if (cmd.cmd_response_type == RespType_R1b) {
         LOG_DRIVER("waiting on DAT[0]...\n");
         usdhc_debug();
         while (!(usdhc_regs->pres_state & 0x01000000)); // look at status of DATA[0] line..., wait for go low?
@@ -241,7 +241,10 @@ void usdhc_setup_clock() {
        - Clear the FRC_SDCLK_ON when changing SDCLKFS or setting RSTA bit
        - Also, make sure that the SDSTB field is high.
     */
-    usdhc_regs->vend_spec &= ~BIT(14); // disable cken
+
+    // TODO(quirks): see header file comment.
+    usdhc_regs->vend_spec &= ~USDHC_VEND_SPEC_CKEN;
+    // usdhc_regs->vend_spec &= ~USDHC_VEND_SPEC_FRC_SDCLK_ON;
     while (!is_usdhc_clock_stable()); // TODO: ... timeout.
 
     /*
@@ -266,10 +269,10 @@ void usdhc_setup_clock() {
 
     while (!is_usdhc_clock_stable()); // TODO: ... timeout
 
-    usdhc_regs->vend_spec |= BIT(13) | BIT(14); // peren & cken
-
-    // force it on?
-    usdhc_regs->vend_spec |= USDHC_VEND_SPEC_FRC_SDCLK_ON;
+    // TODO(quirks): see header file comment
+    usdhc_regs->vend_spec |= USDHC_VEND_SPEC_PEREN | USDHC_VEND_SPEC_CKEN;
+    // TODO: does it make sense to force it on?
+    // usdhc_regs->vend_spec |= USDHC_VEND_SPEC_FRC_SDCLK_ON;
 }
 
 /* Ref: See 10.3.4.2.2 "Reset" */
@@ -298,8 +301,8 @@ void usdhc_reset(void)
     usdhc_regs->clk_tune_ctrl_status = 0;
     usdhc_regs->dll_status = 0;
 
-    // https://github.com/BarrelfishOS/barrelfish/blob/master/devices/imx8x/sdhc.dev#L309-L331
-    usdhc_regs->vend_spec |= BIT(11) | BIT(12); // hcken & ipgen = 1
+    // TODO(quirks): see header file comment about uboot; uboot does this...
+    usdhc_regs->vend_spec |= USDHC_VEND_SPEC_HCKEN | USDHC_VEND_SPEC_IPGEN;
 
     // TODO: This is also broke....
     usdhc_setup_clock(/* 400 kHz */);
@@ -312,7 +315,7 @@ void usdhc_reset(void)
 bool usdhc_supports_3v3_operation() {
     // it also supporsts 1.8/3.0/3.3 but for laziness:
     uint32_t host_cap = usdhc_regs->host_ctrl_cap;
-    return host_cap & BIT(24);
+    return host_cap & USDHC_HOST_CTRL_CAP_VS33;
 }
 
 // TODO: Also see 4.8 Card State Transition Table
@@ -357,8 +360,8 @@ void shared_sd_setup() {
             // Flowchart: ACMD41 with HCS=0
             // also 4.2.3.1 voltage window is 0 => inquiry
             // voltage window is bits 23-0 (so 24 bits i..e 0xffffff mask)
-            // needs BIT(30) for SDHC otherwise loops
-            success = usdhc_send_command_poll(SD_ACMD41_SD_SEND_OP_COND, BIT(30) | (voltage_window & 0xffffff));
+            // needs SD_OCR_CCS for SDHC otherwise loops
+            success = usdhc_send_command_poll(SD_ACMD41_SD_SEND_OP_COND, SD_OCR_CCS | (voltage_window & 0xffffff));
             if (!success) {
                 LOG_DRIVER_ERR("Not SD Memory Card...\n");
                 usdhc_debug();
@@ -366,17 +369,18 @@ void shared_sd_setup() {
             }
 
             ocr_register = usdhc_regs->cmd_rsp0;
-            if (!(ocr_register & BIT(31))) {
+            if (!(ocr_register & SD_OCR_POWER_UP_STATUS)) {
                 LOG_DRIVER("still initialising, trying again %u\n", ocr_register);
             }
 
-            if (!(usdhc_supports_3v3_operation() && ((ocr_register & BIT(19)) || (ocr_register & BIT(20))))) {
+            if (!(usdhc_supports_3v3_operation() && (ocr_register & (SD_OCR_VDD31_32 | SD_OCR_VDD32_33)))) {
                 LOG_DRIVER_ERR("not compatible both with 3v3; might be others shared compat\n");
                 return;
             }
 
-            voltage_window = BIT(19) | BIT(20); // 3v2->3v3 & 3v3->3v4.
+            voltage_window = (SD_OCR_VDD31_32 | SD_OCR_VDD32_33); // 3v2->3v3 & 3v3->3v4.
 
+            // TODO: Use timer driver.
             volatile int32_t i = 0xfffffff;
             while (i > 0) {
                 i--; // blursed busy loop
@@ -391,9 +395,9 @@ busy bit to 0 indicates that the card is still initializing. Setting the busy bi
 initialization. Card initialization shall be completed within 1 second from the first ACMD41. The host
 repeatedly issues ACMD41 for at least 1 second or until the busy bit are set to 1.
 The card checks the operational conditions and the HCS bit in the OCR only at the*/
-        } while (!(ocr_register & BIT(31)));
+        } while (!(ocr_register & SD_OCR_POWER_UP_STATUS));
 
-        if (ocr_register & BIT(30)) {
+        if (ocr_register & SD_OCR_CCS) {
             /* CCS=1, Ver2.00 or later hih/extended capciaty*/
             LOG_DRIVER("Ver2.00 or later High Capacity or Extended Capacity SD Memory Card\n");
             card_info.ccs = true;
@@ -461,8 +465,7 @@ void usdhc_read_single_block() {
     }
 
     /* 3. Set the uSDHC block length register to be the same as the block length set for the card in step 2.*/
-    usdhc_regs->blk_att |= (block_length & USDHC_BLK_ATT_BLKSIZE_MASK) << USDHC_BLK_ATT_BLKSIZE_SHIFT;
-    assert(usdhc_regs->blk_att & BIT(16));
+    usdhc_regs->blk_att = (usdhc_regs->blk_att & ~USDHC_BLK_ATT_BLKSIZE_MASK) | (block_length << USDHC_BLK_ATT_BLKSIZE_SHIFT);
 
 
     /* 5. disable buffer read ready; set DMA, enable DCMA (done in send_command)  */
@@ -482,14 +485,13 @@ unit). */
         data_address *= block_length; /* convert to byte address */
     }
 
-    // TODO: set elsewhere.
-    usdhc_regs->prot_ctrl &= ~0b110; // clear DTW (2-1)
-    // usdhc_regs->prot_ctrl |= 0b010; // set DTW 4 bit mode
+    // TODO: DTW = 00b = 1-bit mode
+    usdhc_regs->prot_ctrl = (usdhc_regs->prot_ctrl & ~USDHC_PROT_CTRL_DTW_MASK) | (0b00 << USDHC_PROT_CTRL_DTW_SHIFT);
 
     usdhc_regs->ds_addr = usdhc_dma_buffer_paddr;
     LOG_DRIVER("dma system addr (phys): 0x%x\n", usdhc_regs->ds_addr);
 
-    assert(usdhc_regs->host_ctrl_cap & BIT(22));
+    assert(usdhc_regs->host_ctrl_cap & USDHC_HOST_CTRL_CAP_DMAS);
 
     /* 5. send command */
     success = usdhc_send_command_poll(SD_CMD17_READ_SINGLE_BLOCK, data_address);
@@ -498,9 +500,8 @@ unit). */
         return;
     }
 
-
     // DMASEL (simple or off)
-    assert(!(usdhc_regs->prot_ctrl & BIT(9))  && !(usdhc_regs->prot_ctrl & BIT(8)));
+    assert(((usdhc_regs->prot_ctrl >> USDHC_PROT_CTRL_DMASEL_SHIFT) & USDHC_PROT_CTRL_DMASEL_MASK) == 0b00);
 
     LOG_DRIVER("waiting for transfer complete...\n");
     usdhc_debug();

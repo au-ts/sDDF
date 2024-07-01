@@ -4,60 +4,66 @@
 
 #include <sddf/util/util.h>
 
-/* The driver is based on the i.MX8 Quad Applications Processor Reference Manual Rev 3.1, 06/2021.
-   The following register descriptions and layout are from section 10.3.7.1.1.
+/* The driver is based on:
 
-    uSDHC1 base address: 30B4_0000h
-    uSDHC2 base address: 30B5_0000h
+    [IMX8MDQLQRM]: i.MX8 Quad i.MX 8M Dual/8M QuadLite/8M Quad Applications Processors Reference Manual
+                   Document Number: IMX8MDQLQRM, Rev 3.1, 06/2021.
+                   https://www.nxp.com/webapp/Download?colCode=IMX8MDQLQRM
+    [SD-PHY]:      SD Specifications Part 1 Physical Layer Simplified Specification.
+                   Version 9.10, Dec. 2023.
+                   https://www.sdcard.org/downloads/pls/
 */
 
-struct imx_usdhc_regs {
-    uint32_t ds_addr; /* 0h DMA System Address (DS_ADDR) RW */
-    uint32_t blk_att; /* 4h  Block Attributes (BLK_ATT) RW */
-    uint32_t cmd_arg; /* 8h   Command Argument (CMD_ARG) RW */
-    uint32_t cmd_xfr_typ; /* Ch   Command Transfer Type (CMD_XFR_TYP) RW */
-    uint32_t cmd_rsp0; /* 10h Command Response0 (CMD_RSP0) RO */
-    uint32_t cmd_rsp1; /* 14h Command Response1 (CMD_RSP1) RO */
-    uint32_t cmd_rsp2; /* 18h Command Response2 (CMD_RSP2) RO */
-    uint32_t cmd_rsp3; /* 1Ch Command Response3 (CMD_RSP3) RO */
-    uint32_t data_buff_acc_port; /* 20h Data Buffer Access Port (DATA_BUFF_ACC_PORT) RW */
-    uint32_t pres_state; /* 24h Present State (PRES_STATE) ROT */
-    uint32_t prot_ctrl; /* 28h Protocol Control (PROT_CTRL) RW */
-    uint32_t sys_ctrl; /* 2Ch System Control (SYS_CTRL) RW */
-    uint32_t int_status; /* 30h Interrupt Status (INT_STATUS) W1C */
-    uint32_t int_status_en; /* 34h Interrupt Status Enable (INT_STATUS_EN) RW */
-    uint32_t int_signal_en; /* 38h Interrupt Signal Enable (INT_SIGNAL_EN) RW */
-    uint32_t autocmd12_err_status; /* 3Ch Auto CMD12 Error Status (AUTOCMD12_ERR_STATUS) RW */
-    uint32_t host_ctrl_cap; /* 40h Host Controller Capabilities (HOST_CTRL_CAP) RW */
-    uint32_t wtmk_lvl; /* 44h Watermark Level (WTMK_LVL) RW */
-    uint32_t mix_ctrl;/* 48h Mixer Control (MIX_CTRL) RW */
-    uint32_t force_event; /* 50h Force Event (FORCE_EVENT) WORZ */
-    uint32_t adma_err_status; /* 54h ADMA Error Status (ADMA_ERR_STATUS) RO */
-    uint32_t adma_sys_addr; /* 58h ADMA System Address (ADMA_SYS_ADDR) RW */
-    uint32_t dll_ctrl; /* 60h DLL (Delay Line) Control (DLL_CTRL) RW */
-    uint32_t dll_status; /* 64h DLL Status (DLL_STATUS) RO */
-    uint32_t clk_tune_ctrl_status; /* 68h CLK Tuning Control and Status (CLK_TUNE_CTRL_STATUS) RW */
-    uint32_t strobe_dll_ctrl; /* 70h Strobe DLL control (STROBE_DLL_CTRL) RW */
-    uint32_t strobe_dll_status; /* 74h Strobe DLL status (STROBE_DLL_STATUS) RO */
-    uint32_t vend_spec; /* C0h Vendor Specific Register (VEND_SPEC) RW */
-    uint32_t mmc_boot; /* C4h MMC Boot (MMC_BOOT) RW */
-    uint32_t vend_spec2; /* C8h Vendor Specific 2 Register (VEND_SPEC2) RW */
-    uint32_t tuning_ctrl; /* CCh Tuning Control (TUNING_CTRL) RW */
-    uint32_t cqe; /* 100h Command Queue (CQE) ROZ */
-};
-typedef volatile struct imx_usdhc_regs imx_usdhc_regs_t;
+/* [IMX8MDQLQRM] Section 10.3.7.1 uSDHC register descriptions */
+typedef struct imx_usdhc_regs {
+    uint32_t ds_addr;              /* DMA System Address            (RW)   */
+    uint32_t blk_att;              /* Block Attributes              (RW)   */
+    uint32_t cmd_arg;              /* Command Argument              (RW)   */
+    uint32_t cmd_xfr_typ;          /* Command Transfer Type         (RW)   */
+    uint32_t cmd_rsp0;             /* Command Response0             (RO)   */
+    uint32_t cmd_rsp1;             /* Command Response1             (RO)   */
+    uint32_t cmd_rsp2;             /* Command Response2             (RO)   */
+    uint32_t cmd_rsp3;             /* Command Response3             (RO)   */
+    uint32_t data_buff_acc_port;   /* Data Buffer Access Port       (RW)   */
+    uint32_t pres_state;           /* Present State                 (ROT)  */
+    uint32_t prot_ctrl;            /* Protocol Control              (RW)   */
+    uint32_t sys_ctrl;             /* System Control                (RW)   */
+    uint32_t int_status;           /* Interrupt Status              (W1C)  */
+    uint32_t int_status_en;        /* Interrupt Status Enable       (RW)   */
+    uint32_t int_signal_en;        /* Interrupt Signal Enable       (RW)   */
+    uint32_t autocmd12_err_status; /* Auto CMD12 Error Status       (RW)   */
+    uint32_t host_ctrl_cap;        /* Host Controller Capabilities  (RW)   */
+    uint32_t wtmk_lvl;             /* Watermark Level               (RW)   */
+    uint32_t mix_ctrl;             /* Mixer Control                 (RW)   */
+    uint32_t force_event;          /* Force Event                   (WORZ) */
+    uint32_t adma_err_status;      /* ADMA Error Status             (RO)   */
+    uint32_t adma_sys_addr;        /* ADMA System Address           (RW)   */
+    uint32_t dll_ctrl;             /* DLL (Delay Line) Control      (RW)   */
+    uint32_t dll_status;           /* DLL Status                    (RO)   */
+    uint32_t clk_tune_ctrl_status; /* CLK Tuning Control and Status (RW)   */
+    uint32_t strobe_dll_ctrl;      /* Strobe DLL control            (RW)   */
+    uint32_t strobe_dll_status;    /* Strobe DLL status             (RO)   */
+    uint32_t vend_spec;            /* Vendor Specific Register      (RW)   */
+    uint32_t mmc_boot;             /* MMC Boot                      (RW)   */
+    uint32_t vend_spec2;           /* Vendor Specific 2 Register    (RW)   */
+    uint32_t tuning_ctrl;          /* Tuning Control                (RW)   */
+    uint32_t cqe;                  /* Command Queue                 (ROZ)  */
+} imx_usdhc_regs_t;
 
-/* BLK_ATT Bits. See 10.3.7.1.3 */
-#define USDHC_BLK_ATT_BLKSIZE_SHIFT 0              /* Transfer block size    */
-#define USDHC_BLK_ATT_BLKSIZE_MASK  (BIT(13) - 1)  /* 13 Bits: BLK_ATT[12-0] */
+#define _LEN(start, end) ((end - start) + 1)
+#define _MASK(start, end)  ((BIT(_LEN(start, end)) - 1) << (start))
+
+/* [IMX8MDQLQRM] Section 10.3.7.1.3 Block Attributes */
+#define USDHC_BLK_ATT_BLKSIZE_SHIFT 0            /* Transfer block size    */
+#define USDHC_BLK_ATT_BLKSIZE_MASK  _MASK(0, 12) /* BLK_ATT[12-0] */
 
 /* CMD_XFR_TYP Bits. See 10.3.7.1.5 */
 #define USDHC_CMD_XFR_TYP_CCCEN BIT(19) /* Command CRC check enable */
 #define USHDC_CMD_XFR_TYP_CICEN BIT(20) /* Command index check enable */
 #define USDHC_CMD_XFR_TYP_DPSEL BIT(21) /* Data present select */
 
-#define USDHC_CMD_XFR_TYP_RSPTYP_SHIFT 16           /* Response type select */
-#define USDHC_CMD_XFR_TYP_RSPTYP_MASK  (BIT(2) - 1) /* 2 Bits: XFR_TYP[17-16]*/
+#define USDHC_CMD_XFR_TYP_RSPTYP_SHIFT 16            /* Response type select */
+#define USDHC_CMD_XFR_TYP_RSPTYP_MASK  _MASK(16, 17) /* RSPTYP[17-16] */
 
 /* PRES_STATE Bits. See 10.3.7.1.11 */
 #define USDHC_PRES_STATE_CIHB  BIT(0)  /* Command inhibit (CMD) */
@@ -66,9 +72,11 @@ typedef volatile struct imx_usdhc_regs imx_usdhc_regs_t;
 #define USDHC_PRES_STATE_SDSTB BIT(3)  /* SD clock stable */
 #define USDHC_PRES_STATE_CINST BIT(16) /* Card inserted. */
 
-/* PROT_CTRL Bits. See 10.3.7.1.12 */
-#define USDHC_PROT_CTRL_DMASEL_SHIFT 8             /* DMA select. */
-#define USDHC_PROT_CTRL_DMASEL_MASK  (BIT(2) - 1)  /* 2 Bits: PROT_CTLR[9-8] */
+/* [IMX8MDQLQRM] Section 10.3.7.1.12 Protocol Control */
+#define USDHC_PROT_CTRL_DTW_SHIFT    1             /* Data transfer width.   */
+#define USDHC_PROT_CTRL_DTW_MASK     _MASK(1, 2)   /* 2 Bits: PROT_CTRL[2-1] */
+#define USDHC_PROT_CTRL_DMASEL_SHIFT 8             /* DMA select.            */
+#define USDHC_PROT_CTRL_DMASEL_MASK  _MASK(8, 9)   /* 2 Bits: PROT_CTRL[9-8] */
 
 /* SYS_CTRL Bits. See 10.3.7.1.13 */
 #define USDHC_SYS_CTRL_RSTA  BIT(24)  /* Software reset for all */
@@ -135,16 +143,35 @@ typedef volatile struct imx_usdhc_regs imx_usdhc_regs_t;
 #define USDHC_INT_SIGNAL_TNEIEN   BIT(26)  /* Tuning error interrupt enable */
 #define USDHC_INT_SIGNAL_DMAEIEN  BIT(28)  /* DMA error interrupt enable */
 
+/* [IMX8MDQLQRM] Section 10.3.7.1.18 Host Controller Capabilities */
+#define USDHC_HOST_CTRL_CAP_DMAS  BIT(22)  /* DMA Support */
+#define USDHC_HOST_CTRL_CAP_VS33  BIT(24)  /* Voltage support 3.3 V */
+
 /* MIX_CTLR Bits. See 10.3.7.1.20 */
 #define USDHC_MIX_CTRL_DMAEN  BIT(0)  /* DMA enable */
 #define USDHC_MIX_CTLR_AC12EN BIT(2)  /* Auto CMD12 enable */
 #define USDHC_MIX_CTRL_DTDSEL BIT(4)  /* Data transfer direction select (1 = read) */
 #define USDHC_MIX_CTRL_MSBSEL BIT(5)  /* Mult / Single block select */
 
-/* VEND_SPEC Bits. See 10.3.7.1.29 */
+/* [IMX8MDQLQRM] Section 10.3.7.1.29 Vendor Specific Register */
 #define USDHC_VEND_SPEC_FRC_SDCLK_ON BIT(8) /* Force CLK output active. */
+/*
+    TODO(quirks):
+    - U-Boot writes into CKEN/PEREN/HCKEN/IPGEN bits whereas [IMX8MDQLQRM] sees
+      those as reserved bits of VEND_SPEC.
+    - However, both seem to work....
+*/
+#define USDHC_VEND_SPEC_CKEN         0x00004000
+#define USDHC_VEND_SPEC_PEREN	     0x00002000
+#define USDHC_VEND_SPEC_HCKEN	     0x00001000
+#define USDHC_VEND_SPEC_IPGEN	     0x00000800
 
-/* Documentation: 4.9 of the SD Spec */
+
+/*
+    Below this point is generic non-imx specific SD items from [SD-PHY].
+*/
+
+/* [SD-PHY] Section 4.9 Responses */
 typedef enum {
     RespType_None = 0,
     RespType_R1,
@@ -153,18 +180,17 @@ typedef enum {
     RespType_R3,
     RespType_R4,
     RespType_R5,
-    RespType_R5b, // TODO: imx8 made this up lol, see note after table 10-42.
     RespType_R6,
     RespType_R7,
 } response_type_t;
 
+/* An arbitrary sd_cmd_t type for passing commands */
 typedef struct {
     uint8_t cmd_index;
     response_type_t cmd_response_type;
     bool is_app_cmd;
     bool data_present;
 } sd_cmd_t;
-
 #define _SD_CMD_DEF(number, rtype, ...)  (sd_cmd_t){.cmd_index = (number), .cmd_response_type = (rtype), .is_app_cmd = false, ##__VA_ARGS__}
 #define _SD_ACMD_DEF(number, rtype) (sd_cmd_t){.cmd_index = (number), .cmd_response_type = (rtype), .is_app_cmd = true, .data_present = false}
 
@@ -184,5 +210,18 @@ typedef struct {
 #define SD_ACMD51_SEND_SCR          _SD_ACMD_DEF(51, RespType_R1)
 
 
-/* See Section 4.10.1 / Table 4-42 definitions */
-#define SD_CARD_STATUS_APP_CMD  BIT(5)
+/* [SD-PHY] Section 4.10.1 Card Status */
+#define SD_CARD_STATUS_APP_CMD  BIT(5)   /* The card will expect ACMD */
+
+/* [SD-PHY] Section 5.1 OCR Register */
+#define SD_OCR_VDD27_28         BIT(15)  /* Vdd supports 2.7–2.8V */
+#define SD_OCR_VDD28_29         BIT(16)  /* Vdd supports 2.8–2.9V */
+#define SD_OCR_VDD29_30         BIT(17)  /* Vdd supports 2.9–3.0V */
+#define SD_OCR_VDD30_31         BIT(18)  /* Vdd supports 3.0–3.1V */
+#define SD_OCR_VDD31_32         BIT(19)  /* Vdd supports 3.1–3.2V */
+#define SD_OCR_VDD32_33         BIT(20)  /* Vdd supports 3.2–3.3V */
+#define SD_OCR_VDD33_34         BIT(21)  /* Vdd supports 3.3–3.4V */
+#define SD_OCR_VDD34_35         BIT(22)  /* Vdd supports 3.4–3.5V */
+#define SD_OCR_VDD35_36         BIT(23)  /* Vdd supports 3.5–3.6V */
+#define SD_OCR_CCS              BIT(30)  /* Card Capacity Status (CCS) */
+#define SD_OCR_POWER_UP_STATUS  BIT(31)  /* Card power up status bit (busy) */
