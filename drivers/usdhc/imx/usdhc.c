@@ -3,6 +3,16 @@
 #include <microkit.h>
 #include <sddf/util/printf.h>
 
+#define DEBUG_DRIVER
+
+#ifdef DEBUG_DRIVER
+#define LOG_DRIVER(...) do{ sddf_dprintf("uSDHC DRIVER|INFO: "); sddf_dprintf(__VA_ARGS__); }while(0)
+#else
+#define LOG_DRIVER(...) do{}while(0)
+#endif
+
+#define LOG_DRIVER_ERR(...) do{ sddf_printf("uSDHC DRIVER|ERROR: "); sddf_printf(__VA_ARGS__); }while(0)
+
 imx_usdhc_regs_t *usdhc_regs;
 volatile uint32_t *iomuxc_regs;
 
@@ -17,8 +27,8 @@ static struct {
 } card_info = { .rca = 0 };
 
 void usdhc_debug(void) {
-    sddf_printf("uSDHC: PRES_STATE: %u, PROT_CTRL: %u, SYS_CTRL: %u, MIX_CTRL: %u, INT_STATUS: %u, INT_STATUS_EN: %u, INT_SIGNAL_EN: %u, VEND_SPEC: %u, VEND_SPEC2: %u, BLK_ATT: %u\n", usdhc_regs->pres_state, usdhc_regs->prot_ctrl, usdhc_regs->sys_ctrl, usdhc_regs->mix_ctrl, usdhc_regs->int_status, usdhc_regs->int_status_en, usdhc_regs->int_signal_en, usdhc_regs->vend_spec, usdhc_regs->vend_spec2, usdhc_regs->blk_att);
-    sddf_printf("uSDHC: CMD_RSP0: %u, CMD_RSP1: %u, CMD_RSP2: %u, CMD_RSP3: %u\n", usdhc_regs->cmd_rsp0, usdhc_regs->cmd_rsp1, usdhc_regs->cmd_rsp2, usdhc_regs->cmd_rsp3);
+    LOG_DRIVER("uSDHC: PRES_STATE: %u, PROT_CTRL: %u, SYS_CTRL: %u, MIX_CTRL: %u, INT_STATUS: %u, INT_STATUS_EN: %u, INT_SIGNAL_EN: %u, VEND_SPEC: %u, VEND_SPEC2: %u, BLK_ATT: %u\n", usdhc_regs->pres_state, usdhc_regs->prot_ctrl, usdhc_regs->sys_ctrl, usdhc_regs->mix_ctrl, usdhc_regs->int_status, usdhc_regs->int_status_en, usdhc_regs->int_signal_en, usdhc_regs->vend_spec, usdhc_regs->vend_spec2, usdhc_regs->blk_att);
+    LOG_DRIVER("uSDHC: CMD_RSP0: %u, CMD_RSP1: %u, CMD_RSP2: %u, CMD_RSP3: %u\n", usdhc_regs->cmd_rsp0, usdhc_regs->cmd_rsp1, usdhc_regs->cmd_rsp2, usdhc_regs->cmd_rsp3);
 }
 
 void usdhc_notified(void)
@@ -36,7 +46,7 @@ void notified(microkit_channel ch)
         break;
 
     default:
-        sddf_printf("notification on unknown channel: %d\n", ch);
+        LOG_DRIVER_ERR("notification on unknown channel: %d\n", ch);
         break;
     }
 
@@ -58,7 +68,7 @@ uint32_t get_command_xfr_typ(sd_cmd_t cmd) {
     response_type_t rtype = cmd.cmd_response_type;
 
     if (cmd.data_present) {
-        sddf_printf("command has data present\n");
+        LOG_DRIVER("command has data present\n");
         cmd_xfr_typ |= USDHC_CMD_XFR_TYP_DPSEL;
         usdhc_regs->mix_ctrl |= USDHC_MIX_CTRL_DMAEN;
 
@@ -95,7 +105,7 @@ uint32_t get_command_xfr_typ(sd_cmd_t cmd) {
         cmd_xfr_typ |= USDHC_CMD_XFR_TYP_CCCEN;
         cmd_xfr_typ |= (0b11 << USDHC_CMD_XFR_TYP_RSPTYP_SHIFT);
     } else {
-        sddf_printf("unknown rtype!\n");
+        LOG_DRIVER_ERR("unknown rtype!\n");
     }
 
     // CMDTYP (23-22): Nothing needs this, as not suspend/resume/abort YET (TODO)
@@ -115,7 +125,7 @@ uint32_t get_command_xfr_typ(sd_cmd_t cmd) {
  */
 bool usdhc_send_command_poll(sd_cmd_t cmd, uint32_t cmd_arg)
 {
-    sddf_printf("running cmd %u (is app_cmd: %d) with arg %u\n", cmd.cmd_index, cmd.is_app_cmd, cmd_arg);
+    LOG_DRIVER("running cmd %u (is app_cmd: %d) with arg %u\n", cmd.cmd_index, cmd.is_app_cmd, cmd_arg);
 
     /* See description of App-Specific commands in §4.3.9 */
     if (cmd.is_app_cmd) {
@@ -123,7 +133,7 @@ bool usdhc_send_command_poll(sd_cmd_t cmd, uint32_t cmd_arg)
         // note this is implicitly zero.first tim
         bool success = usdhc_send_command_poll(SD_CMD55_APP_CMD, (uint32_t)card_info.rca << 16);
         if (!success) {
-            sddf_printf("couldn't send CMD55_APP_CMD\n");
+            LOG_DRIVER_ERR("couldn't send CMD55_APP_CMD\n");
             return false;
         }
 
@@ -131,7 +141,7 @@ bool usdhc_send_command_poll(sd_cmd_t cmd, uint32_t cmd_arg)
         // 4.10; bit 5 is app_cmd for next command....
         uint32_t card_status = usdhc_regs->cmd_rsp0;
         if (!(card_status & SD_CARD_STATUS_APP_CMD)) {
-            sddf_printf("card is not expecting next command to be an ACMD...\n");
+            LOG_DRIVER_ERR("card is not expecting next command to be an ACMD...\n");
             return false;
         }
     }
@@ -141,17 +151,17 @@ bool usdhc_send_command_poll(sd_cmd_t cmd, uint32_t cmd_arg)
     // the \Command Inhibit CMD field (PRES_STATE[CIHB]) in the Present State register
     // before writing to this register.
     if (usdhc_regs->pres_state & (USDHC_PRES_STATE_CIHB | USDHC_PRES_STATE_CDIHB)) {
-        sddf_printf("waiting for command inhibit fields to clear... pres: %u, int_status: %u\n", usdhc_regs->pres_state, usdhc_regs->int_status);
+        LOG_DRIVER("waiting for command inhibit fields to clear... pres: %u, int_status: %u\n", usdhc_regs->pres_state, usdhc_regs->int_status);
         while (usdhc_regs->pres_state & (USDHC_PRES_STATE_CIHB | USDHC_PRES_STATE_CDIHB));
     }
 
     if (usdhc_regs->pres_state & USDHC_PRES_STATE_DLA) {
-        sddf_printf("waiting for data line active to clear...\n");
+        LOG_DRIVER("waiting for data line active to clear...\n");
         while (usdhc_regs->pres_state & USDHC_PRES_STATE_DLA);
     }
 
     uint32_t cmd_xfr_typ = get_command_xfr_typ(cmd);
-    sddf_printf("has cmd_xfr_typ: %u\n", cmd_xfr_typ);
+    LOG_DRIVER("has cmd_xfr_typ: %u\n", cmd_xfr_typ);
 
     // if (iinternal DMA)
     // if (multi-block transfer)
@@ -171,28 +181,28 @@ bool usdhc_send_command_poll(sd_cmd_t cmd, uint32_t cmd_arg)
     uint32_t status = usdhc_regs->int_status;
     if (status & USDHC_INT_STATUS_CTOE) {
         /* command timeout error */
-        sddf_printf("command timeout error\n");
+        LOG_DRIVER_ERR("command timeout error\n");
         return false;
     } else if (status & USDHC_INT_STATUS_CCE) {
         /* command CRC error */
-        sddf_printf("command crc error\n");
+        LOG_DRIVER_ERR("command crc error\n");
         return false;
     } else if (status & USDHC_INT_STATUS_CIE) {
         /* command index error */
-        sddf_printf("command index error\n");
+        LOG_DRIVER_ERR("command index error\n");
         return false;
     } else if (status & USDHC_INT_STATUS_CEBE) {
         /* command end bit error */
-        sddf_printf("command end bit error\n");
+        LOG_DRIVER_ERR("command end bit error\n");
         return false;
     } else if (status & USDHC_INT_STATUS_DTOE) {
         /* data timeout error */
-        sddf_printf("data timeout error\n");
+        LOG_DRIVER_ERR("data timeout error\n");
         usdhc_debug();
         return false;
     } else if (status & USDHC_INT_STATUS_AC12E) {
         /* auto cmd 12 error */
-        sddf_printf("auto cmd12 error: %u\n", usdhc_regs->autocmd12_err_status);
+        LOG_DRIVER_ERR("auto cmd12 error: %u\n", usdhc_regs->autocmd12_err_status);
         usdhc_debug();
         return false;
     }
@@ -200,7 +210,7 @@ bool usdhc_send_command_poll(sd_cmd_t cmd, uint32_t cmd_arg)
     // Either of the busy response commands
     // SDIO 4.9.2 R1b spec: The Host shall check for busy at the response.
     if (cmd.cmd_response_type == RespType_R1b || cmd.cmd_response_type == RespType_R5b) {
-        sddf_printf("helooooooooooo DAT[0]...\n");
+        LOG_DRIVER("waiting on DAT[0]...\n");
         usdhc_debug();
         while (!(usdhc_regs->pres_state & 0x01000000)); // look at status of DATA[0] line..., wait for go low?
     }
@@ -211,7 +221,7 @@ bool usdhc_send_command_poll(sd_cmd_t cmd, uint32_t cmd_arg)
     if (the_status == USDHC_INT_STATUS_CC) {
         usdhc_regs->int_status = USDHC_INT_STATUS_CC;
     } else {
-        sddf_printf("unknown status at command end: 0x%x\n", the_status);
+        LOG_DRIVER_ERR("unknown status at command end: 0x%x\n", the_status);
         return false;
     }
 
@@ -244,7 +254,7 @@ void usdhc_setup_clock() {
 
     /* TODO: We assume single data rate mode (DDR_EN of MIX_CTLR = 0) */
     // TODO: do this in a better, generic way.
-    sddf_printf("sys_ctrl before: %u, ", usdhc_regs->sys_ctrl);
+    LOG_DRIVER("sys_ctrl before: %u, ", usdhc_regs->sys_ctrl);
     uint32_t sys_ctrl = usdhc_regs->sys_ctrl;
     sys_ctrl &= ~(0xffff0); // clear DTOCV,SDCLFS,DVS
     sys_ctrl |= (0x40 << 8);
@@ -252,7 +262,7 @@ void usdhc_setup_clock() {
     sys_ctrl |= ((0b1111) << 16); // Set the DTOCV to max
 
     usdhc_regs->sys_ctrl = sys_ctrl;
-    sddf_printf("after: %u\n", usdhc_regs->sys_ctrl);
+    LOG_DRIVER("after: %u\n", usdhc_regs->sys_ctrl);
 
     while (!is_usdhc_clock_stable()); // TODO: ... timeout
 
@@ -295,7 +305,7 @@ void usdhc_reset(void)
     usdhc_setup_clock(/* 400 kHz */);
 
     if (!usdhc_send_command_poll(SD_CMD0_GO_IDLE_STATE, 0x0)) {
-        sddf_printf("reset failed...\n");
+        LOG_DRIVER_ERR("reset failed...\n");
     }
 }
 
@@ -315,7 +325,7 @@ void shared_sd_setup() {
     // supplied' is set to the host supply voltage and 'check pattern' is set to any 8-bit pattern
     bool success = usdhc_send_command_poll(SD_CMD8_SEND_IF_COND, 0x1AA);
     if (!success) {
-        sddf_printf("not hanled\nn");
+        LOG_DRIVER_ERR("ver 1.x sd not handled\nn");
         return;
 
         // Ver 1.x Standard Capacity SD Memory Card!!!
@@ -337,7 +347,7 @@ void shared_sd_setup() {
         // See Table 4-40; R[39:8].
         if ((r7_resp & 0xFFF) != 0x1AA) {
             // echoed check pattern wrong & accepted voltage
-            sddf_printf("check pattern wrong... %u, wanted %u (full: %u)\n", r7_resp & 0xFFF, 0x1AA, r7_resp);
+            LOG_DRIVER_ERR("check pattern wrong... %u, wanted %u (full: %u)\n", r7_resp & 0xFFF, 0x1AA, r7_resp);
             return;
         }
 
@@ -350,18 +360,18 @@ void shared_sd_setup() {
             // needs BIT(30) for SDHC otherwise loops
             success = usdhc_send_command_poll(SD_ACMD41_SD_SEND_OP_COND, BIT(30) | (voltage_window & 0xffffff));
             if (!success) {
-                sddf_printf("Not SD Memory Card...\n");
+                LOG_DRIVER_ERR("Not SD Memory Card...\n");
                 usdhc_debug();
                 return;
             }
 
             ocr_register = usdhc_regs->cmd_rsp0;
             if (!(ocr_register & BIT(31))) {
-                sddf_printf("still initialising, trying again %u\n", ocr_register);
+                LOG_DRIVER("still initialising, trying again %u\n", ocr_register);
             }
 
             if (!(usdhc_supports_3v3_operation() && ((ocr_register & BIT(19)) || (ocr_register & BIT(20))))) {
-                sddf_printf("not compatible both with 3v3; might be others shared compat\n");
+                LOG_DRIVER_ERR("not compatible both with 3v3; might be others shared compat\n");
                 return;
             }
 
@@ -385,16 +395,16 @@ The card checks the operational conditions and the HCS bit in the OCR only at th
 
         if (ocr_register & BIT(30)) {
             /* CCS=1, Ver2.00 or later hih/extended capciaty*/
-            sddf_printf("Ver2.00 or later High Capacity or Extended Capacity SD Memory Card\n");
+            LOG_DRIVER("Ver2.00 or later High Capacity or Extended Capacity SD Memory Card\n");
             card_info.ccs = true;
         } else {
-            sddf_printf("Ver2.00 or later Standard Capacity SD Memory Card\n");
+            LOG_DRIVER("Ver2.00 or later Standard Capacity SD Memory Card\n");
             card_info.ccs = false;
         }
 
         success = usdhc_send_command_poll(SD_CMD2_ALL_SEND_CID, 0x0);
         if (!success) {
-            sddf_printf(":( couldn't get CID nnumbers\n");
+            LOG_DRIVER_ERR(":( couldn't get CID nnumbers\n");
             return;
         }
 
@@ -403,12 +413,12 @@ The card checks the operational conditions and the HCS bit in the OCR only at th
 
         success = usdhc_send_command_poll(SD_CMD3_SEND_RELATIVE_ADDR, 0x0);
         if (!success) {
-            sddf_printf("couldn't set RCA\n");
+            LOG_DRIVER_ERR("couldn't set RCA\n");
             return;
         }
 
         card_info.rca = (usdhc_regs->cmd_rsp0 >> 16);
-        sddf_printf("\nCard: got RCA: %u\n\n", card_info.rca);
+        LOG_DRIVER("\nCard: got RCA: %u\n\n", card_info.rca);
 
         // TODO: we could, in theory, repeat CMD2/CMD3 for multiple cards.
     }
@@ -424,19 +434,11 @@ void usdhc_read_single_block() {
 
     /* [31:16] RCA, [15:0] Stuff bits*/
     /* move the card to the transfer state */
-    // while (true) {
-        success = usdhc_send_command_poll(SD_CMD7_CARD_SELECT, ((uint32_t)card_info.rca << 16));
-        if (!success) {
-            sddf_printf("failed to move card to transfer state\n");
-            return;
-        }
-
-        // success = usdhc_send_command_poll(SD_CMD7_CARD_SELECT, ((uint32_t)card_info.rca << 16));
-        // if (!success) {
-        //     sddf_printf("failed to deslect card\n");
-        //     return;
-        // }
-    // }
+    success = usdhc_send_command_poll(SD_CMD7_CARD_SELECT, ((uint32_t)card_info.rca << 16));
+    if (!success) {
+        LOG_DRIVER_ERR("failed to move card to transfer state\n");
+        return;
+    }
 
     // This gives garbage????
     /* [31:0] stuff bits */
@@ -454,7 +456,7 @@ void usdhc_read_single_block() {
 
     success = usdhc_send_command_poll(SD_CMD16_SET_BLOCKLEN, block_length);
     if (!success) {
-        sddf_printf("couldn't set block length\n");
+        LOG_DRIVER_ERR("couldn't set block length\n");
         return;
     }
 
@@ -485,26 +487,23 @@ unit). */
     // usdhc_regs->prot_ctrl |= 0b010; // set DTW 4 bit mode
 
     usdhc_regs->ds_addr = usdhc_dma_buffer_paddr;
-    sddf_printf("dma system addr (phys): 0x%lx\n", usdhc_dma_buffer_paddr);
-    sddf_printf("dma system addr (phys): 0x%x\n", usdhc_regs->ds_addr);
-    usdhc_debug();
+    LOG_DRIVER("dma system addr (phys): 0x%x\n", usdhc_regs->ds_addr);
 
     assert(usdhc_regs->host_ctrl_cap & BIT(22));
-
-    sddf_printf("pre-read memory! %u\n", *(uint32_t*)usdhc_dma_buffer_vaddr);
 
     /* 5. send command */
     success = usdhc_send_command_poll(SD_CMD17_READ_SINGLE_BLOCK, data_address);
     if (!success) {
-        sddf_printf("failed to read single block\n");
+        LOG_DRIVER_ERR("failed to read single block\n");
         return;
     }
 
-    sddf_printf("waiting for transfer complete...\n");
-    usdhc_debug();
 
     // DMASEL (simple or off)
     assert(!(usdhc_regs->prot_ctrl & BIT(9))  && !(usdhc_regs->prot_ctrl & BIT(8)));
+
+    LOG_DRIVER("waiting for transfer complete...\n");
+    usdhc_debug();
 
     // TODO: Gets stuck here.
     /* 6. Wait for the Transfer Complete interrupt. */
@@ -512,15 +511,13 @@ unit). */
     while (!usdhc_regs->int_status);
 
     if (usdhc_regs->int_status & USDHC_INT_STATUS_TC) {
-        sddf_printf("read complete?\n");
+        LOG_DRIVER("read complete?\n");
         usdhc_regs->int_status = USDHC_INT_STATUS_TC;
     } else if (usdhc_regs->int_status & USDHC_INT_STATUS_DTOE) {
-        sddf_printf("data timeout error\n");
+        LOG_DRIVER_ERR("data timeout error\n");
         usdhc_debug();
         assert(false);
     }
-
-    sddf_printf("read memory! %x\n", *(uint32_t*)usdhc_dma_buffer_vaddr);
 
     assert(*(uint32_t*)usdhc_dma_buffer_vaddr == 0xdeadbeef);
 
@@ -536,17 +533,17 @@ unit). */
 
     success = usdhc_send_command_poll(SD_CMD24_WRITE_SINGLE_BLOCK, data_address);
     if (!success) {
-        sddf_printf("failed to write single block\n");
+        LOG_DRIVER_ERR("failed to write single block\n");
         return;
     }
 
     while (!usdhc_regs->int_status);
 
     if (usdhc_regs->int_status & USDHC_INT_STATUS_TC) {
-        sddf_printf("write complete?\n");
+        LOG_DRIVER("write complete?\n");
         usdhc_regs->int_status = USDHC_INT_STATUS_TC;
     } else if (usdhc_regs->int_status & USDHC_INT_STATUS_DTOE) {
-        sddf_printf("data timeout error\n");
+        LOG_DRIVER_ERR("data timeout error\n");
         usdhc_debug();
         assert(false);
     }
@@ -556,7 +553,7 @@ unit). */
 
 void init()
 {
-    microkit_dbg_puts("hello from usdhc driver\n");
+    LOG_DRIVER("hello from usdhc driver\n");
 
     usdhc_reset();
 
