@@ -34,19 +34,17 @@
 
 #define REQBK_SIZE (BLK_NUM_CLIENTS * BLK_QUEUE_SIZE)
 
-uintptr_t blk_config_driver;
-uintptr_t blk_req_queue_driver;
-uintptr_t blk_resp_queue_driver;
+blk_storage_info_t *blk_config_driver;
+blk_req_queue_t * blk_req_queue_driver;
+blk_resp_queue_t * blk_resp_queue_driver;
 uintptr_t blk_data_driver;
 
-uintptr_t blk_config;
-uintptr_t blk_config2;
-uintptr_t blk_req_queue;
-uintptr_t blk_req_queue2;
-uintptr_t blk_resp_queue;
-uintptr_t blk_resp_queue2;
-uintptr_t blk_data;
-uintptr_t blk_data2;
+blk_storage_info_t *blk_config;
+blk_storage_info_t *blk_config2;
+blk_req_queue_t * blk_req_queue;
+blk_req_queue_t * blk_req_queue2;
+blk_resp_queue_t * blk_resp_queue;
+blk_resp_queue_t * blk_resp_queue2;
 
 /* Client specific info */
 typedef struct client {
@@ -120,15 +118,15 @@ static void partitions_init()
         return;
     }
 
-    ((blk_storage_info_t *)blk_config)->sector_size = ((blk_storage_info_t *)blk_config_driver)->sector_size;
-    ((blk_storage_info_t *)blk_config)->size = clients[0].sectors / (BLK_TRANSFER_SIZE / MSDOS_MBR_SECTOR_SIZE);
-    ((blk_storage_info_t *)blk_config)->read_only = false;
-    __atomic_store_n(&((blk_storage_info_t *)blk_config)->ready, true, __ATOMIC_RELEASE);
+    blk_config->sector_size = blk_config_driver->sector_size;
+    blk_config->size = clients[0].sectors / (BLK_TRANSFER_SIZE / MSDOS_MBR_SECTOR_SIZE);
+    blk_config->read_only = false;
+    __atomic_store_n(&blk_config->ready, true, __ATOMIC_RELEASE);
 #if BLK_NUM_CLIENTS > 1
-    ((blk_storage_info_t *)blk_config2)->sector_size = ((blk_storage_info_t *)blk_config_driver)->sector_size;
-    ((blk_storage_info_t *)blk_config2)->size = clients[1].sectors / (BLK_TRANSFER_SIZE / MSDOS_MBR_SECTOR_SIZE);
-    ((blk_storage_info_t *)blk_config2)->read_only = false;
-    __atomic_store_n(&((blk_storage_info_t *)blk_config2)->ready, true, __ATOMIC_RELEASE);
+    blk_config2->sector_size = blk_config_driver->sector_size;
+    blk_config2->size = clients[1].sectors / (BLK_TRANSFER_SIZE / MSDOS_MBR_SECTOR_SIZE);
+    blk_config2->read_only = false;
+    __atomic_store_n(&blk_config2->ready, true, __ATOMIC_RELEASE);
 #endif
 }
 
@@ -183,18 +181,15 @@ static bool handle_mbr_reply()
 
 void init(void)
 {
-    while (!__atomic_load_n(&((blk_storage_info_t *)blk_config_driver)->ready, __ATOMIC_ACQUIRE));
+    while (!__atomic_load_n(&blk_config_driver->ready, __ATOMIC_ACQUIRE));
 
     // Initialise driver queue handle
-    blk_queue_init(&drv_h, (blk_req_queue_t *)blk_req_queue_driver, (blk_resp_queue_t *)blk_resp_queue_driver,
-                   BLK_QUEUE_SIZE);
+    blk_queue_init(&drv_h, blk_req_queue_driver, blk_resp_queue_driver, BLK_QUEUE_SIZE);
 
     // Initialise client queue handles
-    blk_queue_init(&(clients[0].queue_h), (blk_req_queue_t *)blk_req_queue, (blk_resp_queue_t *)blk_resp_queue,
-                   BLK_QUEUE_SIZE);
+    blk_queue_init(&(clients[0].queue_h), blk_req_queue, blk_resp_queue, BLK_QUEUE_SIZE);
 #if BLK_NUM_CLIENTS > 1
-    blk_queue_init(&(clients[1].queue_h), (blk_req_queue_t *)blk_req_queue2, (blk_resp_queue_t *)blk_resp_queue2,
-                   BLK_QUEUE_SIZE);
+    blk_queue_init(&(clients[1].queue_h), blk_req_queue2, blk_resp_queue2, BLK_QUEUE_SIZE);
 #endif
 
     // Initialise fixed size memory allocator and ialloc
