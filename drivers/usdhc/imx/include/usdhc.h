@@ -57,15 +57,14 @@ typedef struct imx_usdhc_regs {
 #define USDHC_BLK_ATT_BLKSIZE_SHIFT 0            /* Transfer block size    */
 #define USDHC_BLK_ATT_BLKSIZE_MASK  _MASK(0, 12) /* BLK_ATT[12-0] */
 
-/* CMD_XFR_TYP Bits. See 10.3.7.1.5 */
+/* [IMX8MDQLQRM] Section 10.3.7.1.5 Command Transfer Type */
 #define USDHC_CMD_XFR_TYP_CCCEN BIT(19) /* Command CRC check enable */
 #define USHDC_CMD_XFR_TYP_CICEN BIT(20) /* Command index check enable */
 #define USDHC_CMD_XFR_TYP_DPSEL BIT(21) /* Data present select */
-
 #define USDHC_CMD_XFR_TYP_RSPTYP_SHIFT 16            /* Response type select */
 #define USDHC_CMD_XFR_TYP_RSPTYP_MASK  _MASK(16, 17) /* RSPTYP[17-16] */
 
-/* PRES_STATE Bits. See 10.3.7.1.11 */
+/* [IMX8MDQLQRM] Section 10.3.7.1.11 Present State */
 #define USDHC_PRES_STATE_CIHB  BIT(0)  /* Command inhibit (CMD) */
 #define USDHC_PRES_STATE_CDIHB BIT(1)  /* Command inhibit (DATA) */
 #define USDHC_PRES_STATE_DLA   BIT(2)  /* Data line active */
@@ -78,14 +77,14 @@ typedef struct imx_usdhc_regs {
 #define USDHC_PROT_CTRL_DMASEL_SHIFT 8             /* DMA select.            */
 #define USDHC_PROT_CTRL_DMASEL_MASK  _MASK(8, 9)   /* 2 Bits: PROT_CTRL[9-8] */
 
-/* SYS_CTRL Bits. See 10.3.7.1.13 */
+/* [IMX8MDQLQRM] Section 10.3.7.1.13 System Control*/
 #define USDHC_SYS_CTRL_RSTA  BIT(24)  /* Software reset for all */
 #define USDHC_SYS_CTRL_RSTC  BIT(25)  /* Software reset for CMD line */
 #define USDHC_SYS_CTRL_RSTD  BIT(26)  /* Software reset for data line */
 #define USDHC_SYS_CTRL_INITA BIT(27)  /* Initialization active */
 #define USDHC_SYS_CTRL_RSTT  BIT(28)  /* Reset tuning */
 
-/* INT_STATUS Bits. See 10.3.7.1.14 */
+/* [IMX8MDQLQRM] Section 10.3.7.1.14 Interrupt Status */
 #define USDHC_INT_STATUS_CC    BIT(0)  /* Command complete. */
 #define USDHC_INT_STATUS_TC    BIT(1)  /* Transfer complete. */
 #define USDHC_INT_STATUS_CTOE  BIT(16) /* Command timeout error. */
@@ -95,7 +94,7 @@ typedef struct imx_usdhc_regs {
 #define USDHC_INT_STATUS_DTOE  BIT(20) /* Data timeout error. */
 #define USDHC_INT_STATUS_AC12E BIT(24) /* Auto CMD12 error. */
 
-/* INT_STATUS_EN Bits. See 10.3.7.1.15 */
+/* [IMX8MDQLQRM] Section 10.3.7.1.15 Interrupt Status Enable */
 #define USDHC_INT_STATUS_EN_CCSEN    BIT(0)   /* Command complete status enable */
 #define USDHC_INT_STATUS_EN_TCSEN    BIT(1)   /* Transfer complete status enable */
 #define USDHC_INT_STATUS_EN_BGESEN   BIT(2)   /* Block gap event status enable */
@@ -119,35 +118,35 @@ typedef struct imx_usdhc_regs {
 #define USDHC_INT_STATUS_EN_TNESEN   BIT(26)  /* Tuning error status enable */
 #define USDHC_INT_STATUS_EN_DMAESEN  BIT(28)  /* DMA error status enable */
 
-/* INT_SIGNAL_EN Bits. See 10.3.7.1.16 */
-#define USDHC_INT_SIGNAL_CCIEN    BIT(0)   /* Command complete interrupt enable */
-#define USDHC_INT_SIGNAL_TCIEN    BIT(1)   /* Transfer complete interrupt enable */
-#define USDHC_INT_SIGNAL_BGEIEN   BIT(2)   /* Block gap event interrupt enable */
-#define USDHC_INT_SIGNAL_DINTIEN  BIT(3)   /* DMA interrupt interrupt enable */
-#define USDHC_INT_SIGNAL_BWRIEN   BIT(4)   /* Buffer write ready interrupt enable */
-#define USDHC_INT_SIGNAL_BRRIEN   BIT(5)   /* Buffer read ready interrupt enable */
-#define USDHC_INT_SIGNAL_CINSIEN  BIT(6)   /* Card insertion interrupt enable */
-#define USDHC_INT_SIGNAL_CRMIEN   BIT(7)   /* Card removal interrupt enable */
-#define USDHC_INT_SIGNAL_CINTIEN  BIT(8)   /* Card interrupt enable */
-#define USDHC_INT_SIGNAL_RTEIEN   BIT(12)  /* Re-tuning event interrupt enable */
-#define USDHC_INT_SIGNAL_TPIEN    BIT(13)  /* Tuning pass interrupt enable */
-#define USDHC_INT_SIGNAL_CQIIEN   BIT(14)  /* Command queuing interrupt enable */
-#define USDHC_INT_SIGNAL_CTOEIEN  BIT(16)  /* Command timeout error interrupt enable */
-#define USDHC_INT_SIGNAL_CCEIEN   BIT(17)  /* Command CRC error interrupt enable */
-#define USDHC_INT_SIGNAL_CEBEIEN  BIT(18)  /* Command end bit error interrupt enable */
-#define USDHC_INT_SIGNAL_CIEIEN   BIT(19)  /* Command indx error interrupt enable */
-#define USDHC_INT_SIGNAL_DTOEIEN  BIT(20)  /* Data timeout error interrupt enable*/
-#define USDHC_INT_SIGNAL_DCSEIEN  BIT(21)  /* Data CRC error interrupt enable */
-#define USDHC_INT_SIGNAL_DEBEIEN  BIT(22)  /* Data end bit error interrupt enable */
-#define USDHC_INT_SIGNAL_AC12EIEN BIT(24)  /* Auto CMD12 error interrupt enable */
-#define USDHC_INT_SIGNAL_TNEIEN   BIT(26)  /* Tuning error interrupt enable */
-#define USDHC_INT_SIGNAL_DMAEIEN  BIT(28)  /* DMA error interrupt enable */
+/* [IMX8MDQLQRM] Section 10.3.7.1.16 Interrupt Signal Enable */
+#define USDHC_INT_SIGNAL_EN_CCIEN    BIT(0)   /* Command complete interrupt enable */
+#define USDHC_INT_SIGNAL_EN_TCIEN    BIT(1)   /* Transfer complete interrupt enable */
+#define USDHC_INT_SIGNAL_EN_BGEIEN   BIT(2)   /* Block gap event interrupt enable */
+#define USDHC_INT_SIGNAL_EN_DINTIEN  BIT(3)   /* DMA interrupt interrupt enable */
+#define USDHC_INT_SIGNAL_EN_BWRIEN   BIT(4)   /* Buffer write ready interrupt enable */
+#define USDHC_INT_SIGNAL_EN_BRRIEN   BIT(5)   /* Buffer read ready interrupt enable */
+#define USDHC_INT_SIGNAL_EN_CINSIEN  BIT(6)   /* Card insertion interrupt enable */
+#define USDHC_INT_SIGNAL_EN_CRMIEN   BIT(7)   /* Card removal interrupt enable */
+#define USDHC_INT_SIGNAL_EN_CINTIEN  BIT(8)   /* Card interrupt enable */
+#define USDHC_INT_SIGNAL_EN_RTEIEN   BIT(12)  /* Re-tuning event interrupt enable */
+#define USDHC_INT_SIGNAL_EN_TPIEN    BIT(13)  /* Tuning pass interrupt enable */
+#define USDHC_INT_SIGNAL_EN_CQIIEN   BIT(14)  /* Command queuing interrupt enable */
+#define USDHC_INT_SIGNAL_EN_CTOEIEN  BIT(16)  /* Command timeout error interrupt enable */
+#define USDHC_INT_SIGNAL_EN_CCEIEN   BIT(17)  /* Command CRC error interrupt enable */
+#define USDHC_INT_SIGNAL_EN_CEBEIEN  BIT(18)  /* Command end bit error interrupt enable */
+#define USDHC_INT_SIGNAL_EN_CIEIEN   BIT(19)  /* Command indx error interrupt enable */
+#define USDHC_INT_SIGNAL_EN_DTOEIEN  BIT(20)  /* Data timeout error interrupt enable*/
+#define USDHC_INT_SIGNAL_EN_DCSEIEN  BIT(21)  /* Data CRC error interrupt enable */
+#define USDHC_INT_SIGNAL_EN_DEBEIEN  BIT(22)  /* Data end bit error interrupt enable */
+#define USDHC_INT_SIGNAL_EN_AC12EIEN BIT(24)  /* Auto CMD12 error interrupt enable */
+#define USDHC_INT_SIGNAL_EN_TNEIEN   BIT(26)  /* Tuning error interrupt enable */
+#define USDHC_INT_SIGNAL_EN_DMAEIEN  BIT(28)  /* DMA error interrupt enable */
 
 /* [IMX8MDQLQRM] Section 10.3.7.1.18 Host Controller Capabilities */
 #define USDHC_HOST_CTRL_CAP_DMAS  BIT(22)  /* DMA Support */
 #define USDHC_HOST_CTRL_CAP_VS33  BIT(24)  /* Voltage support 3.3 V */
 
-/* MIX_CTLR Bits. See 10.3.7.1.20 */
+/* [IMX8MDQLQRM] Section 10.3.7.1.20 Mixer Control */
 #define USDHC_MIX_CTRL_DMAEN  BIT(0)  /* DMA enable */
 #define USDHC_MIX_CTLR_AC12EN BIT(2)  /* Auto CMD12 enable */
 #define USDHC_MIX_CTRL_DTDSEL BIT(4)  /* Data transfer direction select (1 = read) */
@@ -194,20 +193,20 @@ typedef struct {
 #define _SD_CMD_DEF(number, rtype, ...)  (sd_cmd_t){.cmd_index = (number), .cmd_response_type = (rtype), .is_app_cmd = false, ##__VA_ARGS__}
 #define _SD_ACMD_DEF(number, rtype) (sd_cmd_t){.cmd_index = (number), .cmd_response_type = (rtype), .is_app_cmd = true, .data_present = false}
 
-/* GENERIC? */
-#define SD_CMD0_GO_IDLE_STATE       _SD_CMD_DEF(0, RespType_None)
-#define SD_CMD2_ALL_SEND_CID        _SD_CMD_DEF(2, RespType_R2)
-#define SD_CMD3_SEND_RELATIVE_ADDR  _SD_CMD_DEF(3, RespType_R6)
-#define SD_CMD7_CARD_SELECT         _SD_CMD_DEF(7, RespType_R1b)
-#define SD_CMD8_SEND_IF_COND        _SD_CMD_DEF(8, RespType_R7)
-#define SD_CMD13_SEND_STATUS        _SD_CMD_DEF(13, RespType_R1)
-#define SD_CMD16_SET_BLOCKLEN       _SD_CMD_DEF(16, RespType_R1)
-#define SD_CMD17_READ_SINGLE_BLOCK  _SD_CMD_DEF(17, RespType_R1, .data_present = true)
-#define SD_CMD24_WRITE_SINGLE_BLOCK _SD_CMD_DEF(24, RespType_R1, .data_present = true)
-#define SD_CMD55_APP_CMD            _SD_CMD_DEF(55, RespType_R1)
+/* [SD-PHY] Section 4.7.4 Detailed Command Description */
+#define SD_CMD0_GO_IDLE_STATE       _SD_CMD_DEF(0, RespType_None)  /* [31:0] stuff bits */
+#define SD_CMD2_ALL_SEND_CID        _SD_CMD_DEF(2, RespType_R2)    /* [31:0] stuff bits */
+#define SD_CMD3_SEND_RELATIVE_ADDR  _SD_CMD_DEF(3, RespType_R6)    /* [31:0] stuff bits */
+#define SD_CMD7_CARD_SELECT         _SD_CMD_DEF(7, RespType_R1b)   /* [31:16] RCA, [15:0] stuff bits */
+#define SD_CMD8_SEND_IF_COND        _SD_CMD_DEF(8, RespType_R7)    /* [31:12] zeroed, [11:8] VHS, [7:0] check pattern */
+#define SD_CMD13_SEND_STATUS        _SD_CMD_DEF(13, RespType_R1)   /* [31:16] RCA, [15:0] stuff bits */
+#define SD_CMD16_SET_BLOCKLEN       _SD_CMD_DEF(16, RespType_R1)   /* [31:0] block length */
+#define SD_CMD17_READ_SINGLE_BLOCK  _SD_CMD_DEF(17, RespType_R1, .data_present = true)  /* [31:0] data address */
+#define SD_CMD24_WRITE_SINGLE_BLOCK _SD_CMD_DEF(24, RespType_R1, .data_present = true)  /* [31:0] data address */
+#define SD_CMD55_APP_CMD            _SD_CMD_DEF(55, RespType_R1)   /* [31:16] RCA, [15:0] stuff bits */
 
-#define SD_ACMD41_SD_SEND_OP_COND   _SD_ACMD_DEF(41, RespType_R3)
-#define SD_ACMD51_SEND_SCR          _SD_ACMD_DEF(51, RespType_R1)
+#define SD_ACMD41_SD_SEND_OP_COND   _SD_ACMD_DEF(41, RespType_R3)  /* [31] zero, [30] host capacity status (CCS), [29] eSD reserved , [28] XPC, [27:25] zeroed, [24] S18R, [23:0] Vdd Voltage Window (host) */
+#define SD_ACMD51_SEND_SCR          _SD_ACMD_DEF(51, RespType_R1)  /* [31:0] stuff bits */
 
 
 /* [SD-PHY] Section 4.10.1 Card Status */
