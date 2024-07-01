@@ -174,9 +174,9 @@ static void uart_setup(void)
     cr |= AML_UART_DATA_LEN_8BIT;
 
     /* Configure the reference clock and baud rate */
-    uart_clock = (struct uart_clock_state) {
-        true, UART_XTAL_REF_CLK, 1, 0, 0
-    };
+    uart_clock.crystal_clock = true;
+    uart_clock.reference_clock_frequency = UART_XTAL_REF_CLK;
+    uart_clock.crystal_clock_divider = 1;
     set_baud(UART_DEFAULT_BAUD);
 
     uint32_t irqc = uart_regs->irqc;
