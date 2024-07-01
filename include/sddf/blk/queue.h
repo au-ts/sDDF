@@ -14,8 +14,6 @@
 
 /* Size of a single block to be transferred */
 #define BLK_TRANSFER_SIZE 4096
-/* Maximum number of slots in each queue. Can be configured. */
-#define BLK_QUEUE_SIZE 1024
 /* Device serial number max string length */
 #define BLK_MAX_SERIAL_NUMBER 63
 

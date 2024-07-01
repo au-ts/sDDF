@@ -9,6 +9,7 @@
 #include <sddf/util/printf.h>
 #include <sddf/util/string.h>
 #include <sddf/util/util.h>
+#include <blk_config.h>
 
 // #define DEBUG_BLK_VIRT
 
@@ -17,20 +18,14 @@
 #else
 #define LOG_BLK_VIRT(...) do{}while(0)
 #endif
-
-
 #define LOG_BLK_VIRT_ERR(...) do{ sddf_dprintf("BLK_VIRT|ERROR: "); sddf_dprintf(__VA_ARGS__); }while(0)
 
-/* TODO: Currently only works for 1 and 2 clients, need to handle multiple clients */
-
-#define MAX_BLK_NUM_CLIENTS 16
 
 #define DRIVER_CH 1
 #define CLIENT_CH_1 3
 #define CLIENT_CH_2 4
 
-#define MEM_REGION_SIZE 0x200000 //@ericc: autogen this from microkit xml system file
-#define DRV_MAX_DATA_BUFFERS (MEM_REGION_SIZE / BLK_TRANSFER_SIZE)
+#define BLK_NUM_BUFFERS_DRIV (BLK_DATA_REGION_SIZE_DRIV / BLK_TRANSFER_SIZE)
 
 #define REQBK_SIZE (BLK_NUM_CLIENTS * BLK_QUEUE_SIZE)
 
@@ -40,11 +35,12 @@ blk_resp_queue_t *blk_resp_queue_driver;
 uintptr_t blk_data_driver;
 
 blk_storage_info_t *blk_config;
-blk_storage_info_t *blk_config2;
 blk_req_queue_t *blk_req_queue;
-blk_req_queue_t *blk_req_queue2;
 blk_resp_queue_t *blk_resp_queue;
-blk_resp_queue_t *blk_resp_queue2;
+uintptr_t blk_data;
+
+blk_queue_handle_t drv_h;
+// blk_queue_handle_t cli_h[BLK_NUM_CLIENTS];
 
 /* Client specific info */
 typedef struct client {
@@ -53,14 +49,13 @@ typedef struct client {
     uint32_t start_sector;
     uint32_t sectors;
 } client_t;
-client_t clients[MAX_BLK_NUM_CLIENTS];
+client_t clients[BLK_NUM_CLIENTS];
 
-blk_queue_handle_t drv_h;
 
 /* Fixed size memory allocator */
 static fsmalloc_t fsmalloc;
 static bitarray_t fsmalloc_avail_bitarr;
-static word_t fsmalloc_avail_bitarr_words[roundup_bits2words64(DRV_MAX_DATA_BUFFERS)];
+static word_t fsmalloc_avail_bitarr_words[roundup_bits2words64(BLK_NUM_BUFFERS_DRIV)];
 
 /* Bookkeeping struct per request */
 typedef struct reqbk {
@@ -184,18 +179,21 @@ void init(void)
     while (!__atomic_load_n(&blk_config_driver->ready, __ATOMIC_ACQUIRE));
 
     // Initialise driver queue handle
-    blk_queue_init(&drv_h, blk_req_queue_driver, blk_resp_queue_driver, BLK_QUEUE_SIZE);
+    blk_queue_init(&drv_h, blk_req_queue_driver, blk_resp_queue_driver,
+                   BLK_QUEUE_SIZE_DRIV);
 
     // Initialise client queue handles
-    blk_queue_init(&(clients[0].queue_h), blk_req_queue, blk_resp_queue, BLK_QUEUE_SIZE);
+    blk_queue_init(&(clients[0].queue_h), blk_req_queue, blk_resp_queue,
+                   BLK_QUEUE_SIZE_CLI0);
 #if BLK_NUM_CLIENTS > 1
-    blk_queue_init(&(clients[1].queue_h), blk_req_queue2, blk_resp_queue2, BLK_QUEUE_SIZE);
+    blk_queue_init(&(clients[1].queue_h), blk_req_queue2, blk_resp_queue2,
+                   BLK_QUEUE_SIZE_CLI1);
 #endif
 
     // Initialise fixed size memory allocator and ialloc
     ialloc_init(&ialloc, ialloc_idxlist, REQBK_SIZE);
-    fsmalloc_init(&fsmalloc, blk_data_driver, BLK_TRANSFER_SIZE, DRV_MAX_DATA_BUFFERS, &fsmalloc_avail_bitarr,
-                  fsmalloc_avail_bitarr_words, roundup_bits2words64(DRV_MAX_DATA_BUFFERS));
+    fsmalloc_init(&fsmalloc, blk_data_driver, BLK_TRANSFER_SIZE, BLK_NUM_BUFFERS_DRIV, &fsmalloc_avail_bitarr,
+                  fsmalloc_avail_bitarr_words, roundup_bits2words64(BLK_NUM_BUFFERS_DRIV));
 
     // Initialise client channels
     clients[0].ch = CLIENT_CH_1;
