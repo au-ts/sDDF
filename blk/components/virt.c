@@ -35,16 +35,16 @@
 #define REQBK_SIZE (BLK_NUM_CLIENTS * BLK_QUEUE_SIZE)
 
 blk_storage_info_t *blk_config_driver;
-blk_req_queue_t * blk_req_queue_driver;
-blk_resp_queue_t * blk_resp_queue_driver;
+blk_req_queue_t *blk_req_queue_driver;
+blk_resp_queue_t *blk_resp_queue_driver;
 uintptr_t blk_data_driver;
 
 blk_storage_info_t *blk_config;
 blk_storage_info_t *blk_config2;
-blk_req_queue_t * blk_req_queue;
-blk_req_queue_t * blk_req_queue2;
-blk_resp_queue_t * blk_resp_queue;
-blk_resp_queue_t * blk_resp_queue2;
+blk_req_queue_t *blk_req_queue;
+blk_req_queue_t *blk_req_queue2;
+blk_resp_queue_t *blk_resp_queue;
+blk_resp_queue_t *blk_resp_queue2;
 
 /* Client specific info */
 typedef struct client {

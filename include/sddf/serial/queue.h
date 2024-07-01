@@ -172,7 +172,7 @@ static inline void serial_update_visible_head(serial_queue_handle_t *queue_handl
  *
  * @param queue_handle queue containing the data.
  *
- * @return The bytes of data stored in the queue. 
+ * @return The bytes of data stored in the queue.
  */
 static inline uint32_t serial_queue_length(serial_queue_handle_t *queue_handle)
 {
@@ -185,7 +185,7 @@ static inline uint32_t serial_queue_length(serial_queue_handle_t *queue_handle)
  *
  * @param queue_handle queue containing the data.
  *
- * @return The bytes of data stored contiguously in the queue. 
+ * @return The bytes of data stored contiguously in the queue.
  */
 static inline uint32_t serial_queue_contiguous_length(serial_queue_handle_t *queue_handle)
 {
@@ -193,7 +193,7 @@ static inline uint32_t serial_queue_contiguous_length(serial_queue_handle_t *que
 }
 
 /**
- * Return the number of free bytes remaining in the queue. This is the number of 
+ * Return the number of free bytes remaining in the queue. This is the number of
  * bytes that can be added to the queue until the queue is full.
  *
  * @param queue_handle queue to be filled with data.
